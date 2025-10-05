@@ -8,6 +8,10 @@ import { useSelector } from "react-redux";
 import { user } from "./redux/userSlice";
 import { accesstoken } from "./redux/tokenSlice";
 import Cookies from "js-cookie";
+// PDF dependencies (make sure to install: npm i html2canvas jspdf)
+import html2canvas from "html2canvas";
+import { jsPDF } from "jspdf";
+import QRCode from "qrcode";
 
 const ViewTicket = () => {
   const { id } = useParams();
@@ -16,72 +20,13 @@ const ViewTicket = () => {
   const [passengers, setPassengers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [qrDataUrl, setQrDataUrl] = useState("");
   
   // Get user and token from Redux
   const currentUser = useSelector(user);
   const token = useSelector(accesstoken);
 
-  // Add print styles
-  useEffect(() => {
-    const printStyles = `
-      <style>
-        @media print {
-          body * {
-            visibility: hidden;
-          }
-          .print-ticket, .print-ticket * {
-            visibility: visible;
-          }
-          .print-ticket {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-            background: white !important;
-          }
-          .no-print {
-            display: none !important;
-          }
-          .print-time {
-            font-size: 24px !important;
-            font-weight: bold !important;
-            color: #000 !important;
-          }
-          .print-location {
-            font-size: 20px !important;
-            font-weight: bold !important;
-            color: #000 !important;
-          }
-          .print-header {
-            background: #1e40af !important;
-            color: white !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-          .print-details {
-            border: 2px solid #000 !important;
-            padding: 20px !important;
-            margin: 10px 0 !important;
-          }
-        }
-      </style>
-    `;
-    
-    const existingStyle = document.getElementById('print-styles');
-    if (!existingStyle) {
-      const styleElement = document.createElement('div');
-      styleElement.id = 'print-styles';
-      styleElement.innerHTML = printStyles;
-      document.head.appendChild(styleElement);
-    }
-    
-    return () => {
-      const styleElement = document.getElementById('print-styles');
-      if (styleElement) {
-        styleElement.remove();
-      }
-    };
-  }, []);
+  // Print styles removed per request
 
   useEffect(() => {
     const fetchTicketData = async () => {
@@ -139,6 +84,15 @@ const ViewTicket = () => {
     }
     fetchTicketData();
   }, [id, token, currentUser]);
+
+  // Generate a QR code for the booking (encode booking ID)
+  useEffect(() => {
+    if (!booking?._id) return;
+    const payload = `FMS:${booking._id}`;
+    QRCode.toDataURL(payload, { width: 160, margin: 1 })
+      .then((url) => setQrDataUrl(url))
+      .catch((err) => console.error("QR generation error:", err));
+  }, [booking]);
 
   const formatDate = (date) => {
     return new Date(date).toLocaleDateString("en-IN", {
@@ -201,6 +155,47 @@ const ViewTicket = () => {
     );
   }
 
+  // Generate a Boarding Pass PDF (one page per passenger)
+  const handleDownloadBoardingPass = async () => {
+    try {
+      // Find all boarding pass cards in the hidden container
+      const cards = document.querySelectorAll(".boarding-pass-card");
+      if (!cards || cards.length === 0) {
+        toast.error("No boarding pass content available to download");
+        return;
+      }
+      const pdf = new jsPDF("landscape", "pt", "a4");
+      let first = true;
+      for (const el of cards) {
+        // Render at higher scale for crispness
+        const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
+        const imgData = canvas.toDataURL("image/png");
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const pageHeight = pdf.internal.pageSize.getHeight();
+        const imgWidth = canvas.width;
+        const imgHeight = canvas.height;
+        // Fit to page while preserving aspect ratio with small margins
+        const margin = 24;
+        const maxW = pageWidth - margin * 2;
+        const maxH = pageHeight - margin * 2;
+        const ratio = Math.min(maxW / imgWidth, maxH / imgHeight);
+        const renderW = imgWidth * ratio;
+        const renderH = imgHeight * ratio;
+        const x = (pageWidth - renderW) / 2;
+        const y = (pageHeight - renderH) / 2;
+        if (!first) pdf.addPage();
+        first = false;
+        pdf.addImage(imgData, "PNG", x, y, renderW, renderH);
+      }
+      const fname = `BoardingPass_${booking._id}.pdf`;
+      pdf.save(fname);
+      toast.success("Boarding pass downloaded");
+    } catch (e) {
+      console.error("Boarding pass PDF error:", e);
+      toast.error("Failed to generate boarding pass PDF");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4">
       <div className="max-w-4xl mx-auto">
@@ -211,15 +206,15 @@ const ViewTicket = () => {
         </div>
 
         {/* Main Ticket Card */}
-        <div className="bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-200 print-ticket">
+  <div className="bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-200">
           {/* Header Section */}
-          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6 print-header">
+          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4 w-full">
                 <div className="text-center flex-1">
-                  <div className="text-2xl font-bold print-location">{booking.from}</div>
+                  <div className="text-2xl font-bold">{booking.from}</div>
                   <div className="text-sm opacity-90">Departure</div>
-                  <div className="text-lg font-bold mt-1 print-time">{formatTime(booking.departure)}</div>
+                  <div className="text-lg font-bold mt-1">{formatTime(booking.departure)}</div>
                   <div className="text-sm opacity-90">{formatDate(booking.departure)}</div>
                 </div>
                 <div className="flex-1 flex items-center justify-center">
@@ -232,9 +227,9 @@ const ViewTicket = () => {
                   <PlaneLanding className="mx-2" />
                 </div>
                 <div className="text-center flex-1">
-                  <div className="text-2xl font-bold print-location">{booking.to}</div>
+                  <div className="text-2xl font-bold">{booking.to}</div>
                   <div className="text-sm opacity-90">Arrival</div>
-                  <div className="text-lg font-bold mt-1 print-time">{formatTime(booking.arrival)}</div>
+                  <div className="text-lg font-bold mt-1">{formatTime(booking.arrival)}</div>
                   <div className="text-sm opacity-90">{formatDate(booking.arrival)}</div>
                 </div>
               </div>
@@ -250,7 +245,7 @@ const ViewTicket = () => {
           <div className="p-6">
             <div className="grid md:grid-cols-2 gap-6 mb-6">
               {/* Departure Info */}
-              <div className="bg-gray-50 rounded-xl p-4 print-details">
+              <div className="bg-gray-50 rounded-xl p-4">
                 <div className="flex items-center mb-3">
                   <PlaneTakeoff className="text-blue-600 mr-2" size={20} />
                   <h3 className="font-semibold text-gray-800">Departure Details</h3>
@@ -266,13 +261,13 @@ const ViewTicket = () => {
                   </div>
                   <div className="flex items-center">
                     <Clock className="text-gray-500 mr-2" size={16} />
-                    <span className="font-semibold text-2xl print-time">{formatTime(booking.departure)}</span>
+                    <span className="font-semibold text-2xl">{formatTime(booking.departure)}</span>
                   </div>
                 </div>
               </div>
 
               {/* Arrival Info */}
-              <div className="bg-gray-50 rounded-xl p-4 print-details">
+              <div className="bg-gray-50 rounded-xl p-4">
                 <div className="flex items-center mb-3">
                   <PlaneLanding className="text-green-600 mr-2" size={20} />
                   <h3 className="font-semibold text-gray-800">Arrival Details</h3>
@@ -288,14 +283,14 @@ const ViewTicket = () => {
                   </div>
                   <div className="flex items-center">
                     <Clock className="text-gray-500 mr-2" size={16} />
-                    <span className="font-semibold text-2xl print-time">{formatTime(booking.arrival)}</span>
+                    <span className="font-semibold text-2xl">{formatTime(booking.arrival)}</span>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Booking Information */}
-            <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-6 mb-6 print-details">
+            <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-6 mb-6">
               <div className="grid md:grid-cols-3 gap-4">
                 <div className="text-center">
                   <div className="flex items-center justify-center mb-2">
@@ -323,24 +318,7 @@ const ViewTicket = () => {
               </div>
             </div>
 
-            {/* Print-only Time Summary */}
-            <div className="hidden print:block bg-yellow-50 border-2 border-yellow-400 rounded-xl p-6 mb-6">
-              <h3 className="text-xl font-bold text-center mb-4">⏰ FLIGHT SCHEDULE</h3>
-              <div className="grid grid-cols-2 gap-8 text-center">
-                <div className="border-r-2 border-yellow-400">
-                  <h4 className="font-bold text-lg mb-2">DEPARTURE</h4>
-                  <div className="text-3xl font-bold print-time">{formatTime(booking.departure)}</div>
-                  <div className="text-lg">{formatDate(booking.departure)}</div>
-                  <div className="text-lg font-semibold">{booking.from}</div>
-                </div>
-                <div>
-                  <h4 className="font-bold text-lg mb-2">ARRIVAL</h4>
-                  <div className="text-3xl font-bold print-time">{formatTime(booking.arrival)}</div>
-                  <div className="text-lg">{formatDate(booking.arrival)}</div>
-                  <div className="text-lg font-semibold">{booking.to}</div>
-                </div>
-              </div>
-            </div>
+            {/* Print-only summary removed */}
 
             {/* Passenger Details */}
             {passengers.length > 0 && (
@@ -366,6 +344,12 @@ const ViewTicket = () => {
                           <div>{passenger.phone || "N/A"}</div>
                         </div>
                       </div>
+                      <div className="grid md:grid-cols-3 gap-4 mt-2">
+                        <div>
+                          <label className="text-sm font-medium text-gray-500">Seat</label>
+                          <div className="font-semibold">{passenger.seat || "—"}</div>
+                        </div>
+                      </div>
                       {passenger.gender && (
                         <div className="mt-2">
                           <label className="text-sm font-medium text-gray-500">Gender</label>
@@ -379,18 +363,19 @@ const ViewTicket = () => {
             )}
 
             {/* Action Buttons */}
-            <div className="flex flex-wrap gap-4 justify-center no-print">
+            <div className="flex flex-wrap gap-4 justify-center">
               <Link
                 to="/bookings"
                 className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
               >
                 Back to Bookings
               </Link>
+              {/* Print Ticket removed */}
               <button
-                onClick={() => window.print()}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+                onClick={handleDownloadBoardingPass}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
               >
-                Print Ticket
+                Download Boarding Pass
               </button>
               <Link
                 to={`/booked/${booking._id}`}
@@ -400,6 +385,125 @@ const ViewTicket = () => {
               </Link>
             </div>
           </div>
+        </div>
+        {/* Off-screen boarding pass render targets (one per passenger) - Styled like sample */}
+        <div id="boarding-pass-render" style={{ position: "absolute", left: "-20000px", top: 0, width: "1400px", background: "#f3f4f6", padding: "24px 0" }}>
+          {(passengers.length > 0 ? passengers : [{ firstName: booking.userEmail || "Guest", lastName: "" }]).map((p, i) => {
+            const dep = new Date(booking.departure);
+            const arr = new Date(booking.arrival);
+            const boardingTill = new Date(dep.getTime() - 20 * 60000);
+            const fmtShort = (d) => d.toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "2-digit" }).toUpperCase();
+            const fmtTime = (d) => d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
+            const seat = p.seat || "—";
+            const paxName = `${p.firstName || ""} ${p.lastName || ""}`.trim() || (booking.userEmail || "Guest");
+            return (
+              <div
+                key={p._id || i}
+                className="boarding-pass-card"
+                style={{
+                  width: "1200px",
+                  margin: "20px auto",
+                  borderRadius: "12px",
+                  background: "#fff",
+                  boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
+                  overflow: "hidden",
+                  border: "1px solid #e5e7eb",
+                }}
+              >
+                {/* Red top header */}
+                <div style={{ background: "#ef4444", color: "#fff", padding: "14px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div style={{ fontWeight: 800, letterSpacing: "0.06em" }}>✈ AIRLINES</div>
+                  <div style={{ fontWeight: 800, letterSpacing: "0.08em" }}>BOARDING PASS</div>
+                </div>
+
+                {/* Ticket body split into main and stub with perforation */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", position: "relative" }}>
+                  {/* Perforation */}
+                  <div style={{ position: "absolute", top: 0, bottom: 0, left: "calc(100% - 320px)", width: "0", borderLeft: "2px dashed #e5e7eb" }} />
+
+                  {/* Main ticket (left) */}
+                  <div style={{ padding: "18px 20px 12px 20px" }}>
+                    {/* Route row */}
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: "12px", paddingBottom: "12px" }}>
+                      <div>
+                        <div style={{ fontSize: 12, color: "#6b7280" }}>From</div>
+                        <div style={{ fontSize: 28, fontWeight: 800, color: "#111827" }}>{booking.from}</div>
+                      </div>
+                      <div style={{ textAlign: "center", color: "#9ca3af" }}>✈</div>
+                      <div style={{ textAlign: "right" }}>
+                        <div style={{ fontSize: 12, color: "#6b7280" }}>To</div>
+                        <div style={{ fontSize: 28, fontWeight: 800, color: "#111827" }}>{booking.to}</div>
+                      </div>
+                    </div>
+
+                    {/* Detail grid */}
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", background: "#f9fafb", borderRadius: 12, padding: 16 }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", rowGap: 8, columnGap: 10 }}>
+                        <div style={{ fontSize: 12, color: "#6b7280" }}>Passenger</div>
+                        <div style={{ fontWeight: 700, color: "#111827" }}>{paxName}</div>
+                        <div style={{ fontSize: 12, color: "#6b7280" }}>Flight</div>
+                        <div style={{ fontWeight: 700, color: "#111827" }}>{booking.flightNo || "—"}</div>
+                        <div style={{ fontSize: 12, color: "#6b7280" }}>Gate</div>
+                        <div style={{ fontWeight: 700, color: "#111827" }}>{booking.gate || "02"}</div>
+                        <div style={{ fontSize: 12, color: "#6b7280" }}>Boarding Till</div>
+                        <div style={{ fontWeight: 700, color: "#111827" }}>{fmtTime(boardingTill)}</div>
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", rowGap: 8, columnGap: 10 }}>
+                        <div style={{ fontSize: 12, color: "#6b7280" }}>Date</div>
+                        <div style={{ fontWeight: 700, color: "#111827" }}>{fmtShort(dep)}</div>
+                        <div style={{ fontSize: 12, color: "#6b7280" }}>Time</div>
+                        <div style={{ fontWeight: 800, color: "#111827" }}>{fmtTime(dep)}</div>
+                        <div style={{ fontSize: 12, color: "#6b7280" }}>Arrival</div>
+                        <div style={{ fontWeight: 800, color: "#111827" }}>{fmtTime(arr)}</div>
+                        <div style={{ fontSize: 12, color: "#6b7280" }}>Seat</div>
+                        <div style={{ fontWeight: 800, color: "#111827" }}>{seat}</div>
+                        <div style={{ fontSize: 12, color: "#6b7280" }}>Terminal</div>
+                        <div style={{ fontWeight: 700, color: "#111827" }}>{booking.terminal || "02"}</div>
+                      </div>
+                    </div>
+
+                    {/* Footer note */}
+                    <div style={{ marginTop: 10, fontSize: 12, color: "#6b7280", textTransform: "uppercase", letterSpacing: 0.4 }}>
+                      Boarding gate closes 15 minutes prior to departure time
+                    </div>
+                  </div>
+
+                  {/* Ticket stub (right) */}
+                  <div style={{ padding: "18px 18px 12px 18px" }}>
+                    <div style={{ fontWeight: 800, fontSize: 14, color: "#111827", marginBottom: 6 }}>BOARDING PASS</div>
+                    <div style={{ background: "#f9fafb", borderRadius: 12, padding: 14, display: "grid", gridTemplateColumns: "1fr 1fr", rowGap: 8, columnGap: 10 }}>
+                      <div style={{ fontSize: 12, color: "#6b7280" }}>Passenger</div>
+                      <div style={{ fontWeight: 700 }}>{paxName}</div>
+                      <div style={{ fontSize: 12, color: "#6b7280" }}>From</div>
+                      <div style={{ fontWeight: 700 }}>{booking.from}</div>
+                      <div style={{ fontSize: 12, color: "#6b7280" }}>To</div>
+                      <div style={{ fontWeight: 700 }}>{booking.to}</div>
+                      <div style={{ fontSize: 12, color: "#6b7280" }}>Flight</div>
+                      <div style={{ fontWeight: 700 }}>{booking.flightNo || "—"}</div>
+                      <div style={{ fontSize: 12, color: "#6b7280" }}>Date</div>
+                      <div style={{ fontWeight: 700 }}>{fmtShort(dep)}</div>
+                      <div style={{ fontSize: 12, color: "#6b7280" }}>Time</div>
+                      <div style={{ fontWeight: 800 }}>{fmtTime(dep)}</div>
+                      <div style={{ fontSize: 12, color: "#6b7280" }}>Seat</div>
+                      <div style={{ fontWeight: 800 }}>{seat}</div>
+                    </div>
+
+                    {/* Barcode */}
+                      <div style={{ marginTop: 12, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <div style={{ fontSize: 12, color: "#6b7280" }}>Booking ID: {booking._id}</div>
+                        <div style={{ width: 110, height: 110, background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+                          {qrDataUrl ? (
+                            <img src={qrDataUrl} alt="Booking QR" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+                          ) : (
+                            <div style={{ fontSize: 10, color: "#9ca3af" }}>QR</div>
+                          )}
+                        </div>
+                      </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
       <ToastContainer position="top-right" autoClose={3000} />

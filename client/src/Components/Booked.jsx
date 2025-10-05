@@ -161,6 +161,10 @@ const Booked = () => {
               <p className="text-gray-500 font-medium">Price</p>
               <p className="font-semibold text-gray-700">{formatPrice(booking.price)}</p>
             </div>
+            <div className="bg-gradient-to-br from-indigo-50 to-white rounded-xl p-4 shadow-sm md:col-span-2">
+              <p className="text-gray-500 font-medium">Booked By</p>
+              <p className="font-semibold text-gray-700 break-all">{booking.userEmail || 'Guest'}</p>
+            </div>
           </div>
         </div>
 
@@ -176,6 +180,7 @@ const Booked = () => {
                   <th className="p-3 text-left font-medium text-gray-600">Name</th>
                   <th className="p-3 text-left font-medium text-gray-600">Email</th>
                   <th className="p-3 text-left font-medium text-gray-600">Phone</th>
+                  <th className="p-3 text-left font-medium text-gray-600">Seat</th>
                   <th className="p-3 text-left font-medium text-gray-600">Type</th>
                 </tr>
               </thead>
@@ -185,12 +190,13 @@ const Booked = () => {
                     <td className="p-3">{p.firstName} {p.lastName}</td>
                     <td className="p-3">{p.email}</td>
                     <td className="p-3">{p.phone}</td>
+                    <td className="p-3 font-semibold">{p.seat || "-"}</td>
                     <td className="p-3">{p.passengerType}</td>
                   </tr>
                 ))}
                 {passengers.length === 0 && (
                   <tr>
-                    <td className="p-4 text-gray-500" colSpan={4}>No passenger data found</td>
+                    <td className="p-4 text-gray-500" colSpan={5}>No passenger data found</td>
                   </tr>
                 )}
               </tbody>

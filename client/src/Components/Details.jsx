@@ -13,7 +13,7 @@ import useFlightStore from "./zustand store/ZStore";
 import { v4 as uuidv4 } from "uuid";
 import { toast, ToastContainer } from "react-toastify";
 
-const PassengerData = ({ filledFormList, setFilledFormList, bookingId }) => {
+const PassengerData = ({ filledFormList, setFilledFormList, bookingId, selectedSeats, setSelectedSeats, index }) => {
   const { passengers, bookedFlight, getAllBookings, allBookings, getPassengersInfo } =
     useFlightStore();
   const currentUser = useSelector(user); // Get current user from Redux
@@ -27,18 +27,26 @@ const PassengerData = ({ filledFormList, setFilledFormList, bookingId }) => {
   
   const randomId = uuidv4();
   const [genderSelected, setGenderSelected] = useState("null");
+  const [open, setOpen] = useState(true);
   const [passengerInfo, setPassengerInfo] = useState({
     sex: "",
     firstName: "",
     lastName: "",
     phone: "",
     email: currentUser?.email || "", // Auto-populate email from signed-in user
+    seat: "",
     country: "",
     state: "",
     city: "",
     pincode: "",
     dob: "",
   });
+
+  // Keep local seat in sync if parent updates selectedSeats (e.g., Randomize All)
+  useEffect(() => {
+    const seatFromParent = selectedSeats?.[index] || "";
+    setPassengerInfo((prev) => (prev.seat === seatFromParent ? prev : { ...prev, seat: seatFromParent }));
+  }, [selectedSeats, index]);
   
   // Initialize bookFlight state with safe defaults
   const [bookFlight, setBookFlight] = useState({
@@ -100,11 +108,71 @@ const PassengerData = ({ filledFormList, setFilledFormList, bookingId }) => {
     getAllBookings(allDetails);
     setFilledFormList((prevVals) => [...prevVals, "filled"]);
   };
+
+  // Assign a random available seat for this passenger (UI-only)
+  const assignRandomSeat = () => {
+    const rows = Array.from({ length: 12 }).map((_, r) => 12 + r); // 12..23
+    const cols = ["A", "B", "C", "D"]; // 2–2 layout
+    const isExitRow = (row) => row === 17 || row === 18;
+
+    // Build all seat codes with priority buckets
+    const buckets = {
+      nonExitWindow: [], // A or D, not exit rows
+      nonExitOther: [], // B or C, not exit rows
+      exitWindow: [],   // A or D on exit rows
+      exitOther: [],    // B or C on exit rows
+    };
+
+    rows.forEach((row) => {
+      cols.forEach((c) => {
+        const code = `${row}${c}`;
+        const window = c === "A" || c === "D";
+        if (isExitRow(row)) {
+          if (window) buckets.exitWindow.push(code);
+          else buckets.exitOther.push(code);
+        } else {
+          if (window) buckets.nonExitWindow.push(code);
+          else buckets.nonExitOther.push(code);
+        }
+      });
+    });
+
+    // Remove seats already taken by others (allow replacing current selection)
+    const taken = new Set(selectedSeats.filter(Boolean));
+    if (passengerInfo.seat) taken.delete(passengerInfo.seat);
+    const filterAvailable = (arr) => arr.filter((code) => !taken.has(code));
+
+    const candidates = [
+      ...filterAvailable(buckets.nonExitWindow),
+      ...filterAvailable(buckets.nonExitOther),
+      ...filterAvailable(buckets.exitWindow),
+      ...filterAvailable(buckets.exitOther),
+    ];
+    if (candidates.length === 0) return;
+
+    // Pick randomly among the highest-priority non-empty bucket
+    const pickFrom = (
+      filterAvailable(buckets.nonExitWindow).length
+        ? filterAvailable(buckets.nonExitWindow)
+        : filterAvailable(buckets.nonExitOther).length
+        ? filterAvailable(buckets.nonExitOther)
+        : filterAvailable(buckets.exitWindow).length
+        ? filterAvailable(buckets.exitWindow)
+        : filterAvailable(buckets.exitOther)
+    );
+    const choice = pickFrom[Math.floor(Math.random() * pickFrom.length)];
+    handleOnchange({ target: { name: "seat", value: choice } });
+  };
   const handleOnchange = (event) => {
     const { name, value } = event.target;
     setPassengerInfo((prevVal) => ({ ...prevVal, [name]: value }));
     setError((prevVal) => ({ ...prevVal, [name]: "" }));
     setBookFlight((prevVals) => ({ ...prevVals, [name]: value }));
+    if (name === "seat") {
+      const copy = [...selectedSeats];
+      copy[index] = value;
+      setSelectedSeats(copy);
+    }
   };
   const handleGenderClick = (genderClick) => {
     setGenderSelected(genderClick);
@@ -132,6 +200,7 @@ const PassengerData = ({ filledFormList, setFilledFormList, bookingId }) => {
           setFilledFormList((prev) => [...prev, "filled"]);
           toast.success("Passenger details saved. We'll create the booking next.");
           setFormFilled(true);
+          setOpen(false);
           return;
         }
 
@@ -142,6 +211,7 @@ const PassengerData = ({ filledFormList, setFilledFormList, bookingId }) => {
           lastName: passengerInfo.lastName,
           email: passengerInfo.email,
           phone: passengerInfo.phone,
+          seat: passengerInfo.seat || undefined,
           country: passengerInfo.country,
           state: passengerInfo.state,
           city: passengerInfo.city,
@@ -236,10 +306,28 @@ const PassengerData = ({ filledFormList, setFilledFormList, bookingId }) => {
   return (
     <form className="passenger-form" onSubmit={handleConfirm}>
       <fieldset disabled={formFilled}>
-        <div className="flex flex-col border-2 rounded-lg mt-5 mb-4 bg-white w-full gap-8 ">
-          <h5 className="text-base font-semibold border-b py-1 px-2">
-            Passenger 1
-          </h5>
+        <div className="mt-5 mb-2 bg-white border rounded-lg px-3 py-2 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="text-base sm:text-lg font-semibold text-slate-800">Passenger {index + 1}</span>
+            {passengerInfo.seat && (
+              <span className="px-2 py-0.5 text-xs rounded-full border bg-slate-50">{passengerInfo.seat}</span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <span className={`text-xs px-2 py-0.5 rounded-full ${formFilled ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
+              {formFilled ? 'Confirmed' : 'Pending'}
+            </span>
+            <button
+              type="button"
+              onClick={() => setOpen((o) => !o)}
+              className="text-xs px-2 py-1 rounded border bg-white hover:bg-slate-50"
+            >
+              {open ? 'Hide' : 'Show'}
+            </button>
+          </div>
+        </div>
+        <div className={open ? '' : 'hidden'}>
+        <div className="flex flex-col border-2 rounded-lg mb-4 bg-white w-full gap-8 ">
           <div>
             <div className="flex flex-col sm:flex-row w-full gap-5 mb-7">
               <div className="w-fit flex flex-row border rounded divide-x text-base mx-2 ">
@@ -322,7 +410,7 @@ const PassengerData = ({ filledFormList, setFilledFormList, bookingId }) => {
             </div>
           </div>
         </div>
-        <div className="flex flex-col border rounder-lg mt-3 bg-white w-full">
+  <div className="flex flex-col border rounder-lg mt-3 bg-white w-full">
           <h5 className="text-base py-1 px-2 border-b ">Contact Information</h5>
           <div className="flex flex-row w-full mt-6 mb-8">
             <div className="w-full flex flex-row gap-3 text-base border rounded divide-x mx-1 sm:mx-5">
@@ -366,8 +454,99 @@ const PassengerData = ({ filledFormList, setFilledFormList, bookingId }) => {
               </div>
             </div>
           </div>
+          {/* Seat selection moved to end for better flow */}
+          <div className="px-2 pb-4">
+            <div className="flex items-center justify-between">
+              <label className="text-sm text-slate-600">Seat selection</label>
+              <button
+                type="button"
+                onClick={assignRandomSeat}
+                className="text-xs px-2 py-1 rounded border bg-white hover:bg-slate-50"
+                title="Pick a random available seat"
+              >
+                🎲 Random
+              </button>
+            </div>
+            <div className="mt-2 space-y-2">
+              {
+                // 12 rows (12–23), 4 seats per row (A–B | aisle | C–D)
+                Array.from({ length: 12 }).map((_, rIdx) => {
+                  const row = 12 + rIdx; // 12..23
+                  const leftCols = ["A","B"]; const rightCols = ["C","D"];
+                  const isExitRow = row === 17 || row === 18; // EXIT rows
+
+                  const renderSeat = (col) => {
+                    const code = `${row}${col}`;
+                    const takenByOther = selectedSeats.includes(code) && passengerInfo.seat !== code;
+                    const mine = passengerInfo.seat === code;
+                    // Demo pricing: window seats and exit row seats show ₹
+                    const isWindow = col === 'A' || col === 'D';
+                    const priced = isWindow || isExitRow;
+                    return (
+                      <button
+                        type="button"
+                        key={code}
+                        disabled={takenByOther}
+                        onClick={() => handleOnchange({ target: { name: "seat", value: mine ? "" : code } })}
+                        className={`w-8 h-8 rounded-md flex items-center justify-center border text-xs transition ${
+                          takenByOther
+                            ? "bg-gray-200 text-gray-400 border-gray-300 cursor-not-allowed"
+                            : mine
+                            ? "bg-blue-600 text-white border-blue-700 ring-2 ring-blue-300"
+                            : priced
+                            ? "bg-blue-500 text-white border-blue-600 hover:bg-blue-600"
+                            : "bg-white text-slate-700 hover:bg-slate-50"
+                        }`}
+                        title={`${code}${priced ? " • Paid" : ""}`}
+                      >
+                        {priced ? "₹" : ""}
+                      </button>
+                    );
+                  };
+
+                  return (
+                    <div key={row} className="flex items-center gap-2">
+                      <div className="w-6 text-xs text-slate-500 text-right">{row}</div>
+                      <div className="flex gap-2">{leftCols.map(renderSeat)}</div>
+                      <div className="w-6" />
+                      <div className="flex gap-2">{rightCols.map(renderSeat)}</div>
+                      {isExitRow && (
+                        <div className="ml-3 text-[10px] text-slate-500 tracking-wider flex items-center gap-1">
+                          <span>««</span>
+                          <span>EXIT</span>
+                          <span>»»</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              }
+            </div>
+            <input
+              type="text"
+              name="seat"
+              value={passengerInfo.seat}
+              onChange={handleOnchange}
+              placeholder="Seat (e.g., 14C)"
+              className="border rounded p-2 mt-2 w-40"
+            />
+            <div className="flex items-center gap-3 text-[11px] text-slate-500 mt-2">
+              <div className="flex items-center gap-1">
+                <span className="inline-block w-4 h-4 rounded border bg-blue-500" />
+                <span>Preferred</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="inline-block w-4 h-4 rounded border bg-blue-600" />
+                <span>Selected</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="inline-block w-4 h-4 rounded border bg-gray-200" />
+                <span>Unavailable</span>
+              </div>
+            </div>
+          </div>
         </div>
-        <div className=" flex flex-row justify-start mb-4 mt-4">
+  <div className=" flex flex-row justify-start mb-4 mt-4">
           <button
             disabled={formFilled}
             type="submit"
@@ -384,6 +563,7 @@ const PassengerData = ({ filledFormList, setFilledFormList, bookingId }) => {
             )}
           </button>
         </div>
+        </div>
       </fieldset>
     </form>
   );
@@ -393,6 +573,9 @@ const Details = () => {
   const { flightData, passengers, isLoggedIn, bookedFlight, passengersInfo } = useFlightStore();
   const { id } = useParams(); // When present, booking already exists
   const [filledFormList, setFilledFormList] = useState([]);
+  const [selectedSeats, setSelectedSeats] = useState(Array.from({ length: Number(passengers || 1) }, () => ""));
+  const paxCount = Number(passengers || 1);
+  
   const [bookingDetails, setBookingDetails] = useState(null);
   const navigateTo = useNavigate();
   
@@ -486,7 +669,9 @@ const Details = () => {
   console.log("🔍 Debug - Flight info for display:", flightInfo);
   
   const notify = (text) => toast(text);
-  const passengerArray = new Array(Number(passengers || 1)).fill(null);
+  const passengerArray = new Array(paxCount).fill(null);
+  
+  // Global Randomize All removed by request
   
   // Create booking (if needed) after passenger forms are completed
   const handleBookFlight = async () => {
@@ -530,6 +715,7 @@ const Details = () => {
         arrival: base.arrival,
         price: base.price,
         passengers: paxCount,
+        
         // Prefer the email the user typed in the passenger form for the first passenger,
         // otherwise fallback to logged-in user's email if available.
         userEmail: (Array.isArray(passengersInfo) && passengersInfo[0]?.email) || currentUser?.email,
@@ -551,13 +737,15 @@ const Details = () => {
       if (Array.isArray(passengersInfo) && passengersInfo.length > 0) {
         try {
           await Promise.all(
-            passengersInfo.map(async (p) => {
+            passengersInfo.map(async (p, idx) => {
               const payload = {
                 bookingId: newBookingId,
                 firstName: p.firstName,
                 lastName: p.lastName,
                 email: p.email,
                 phone: p.phone,
+                seat: selectedSeats?.[idx] || p.seat || undefined,
+                
                 country: p.country,
                 state: p.state,
                 city: p.city,
@@ -595,8 +783,8 @@ const Details = () => {
       <ToastContainer />
       <div className="w-full grid grid-cols-1 sm:grid-cols-3 mt-10 sm:mt-20 gap-y-10 sm:gap-20 items-between px-2 sm:px-16">
         <div className=" col-span-2 w- flex flex-col bg-[#fbfeff] pt-2">
-          <div className="flex flex-row justify-center border-b border-b-slate-300 pb-1 border-slate-400">
-            <h3 className="text-xl font-medium">Passenger Details</h3>
+          <div className="flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50 border border-slate-200 rounded-lg px-3 py-3">
+            <h3 className="text-lg sm:text-xl font-semibold text-slate-800">Passenger Details</h3>
           </div>
           {passengerArray.map((_, index) => (
             <div key={index}>
@@ -604,11 +792,31 @@ const Details = () => {
                 filledFormList={filledFormList}
                 setFilledFormList={setFilledFormList}
                 bookingId={id}
+                selectedSeats={selectedSeats}
+                setSelectedSeats={setSelectedSeats}
+                index={index}
               />
             </div>
           ))}
         </div>
-        {bookingDetails && <FeeSummary flightInfo={flightInfo} />}
+        {bookingDetails && (
+          <div className="sm:sticky sm:top-24">
+            <FeeSummary flightInfo={flightInfo} />
+            <div className="mt-4 p-3 bg-slate-50 rounded border">
+              <h4 className="font-semibold text-slate-700 mb-2">Selected seats</h4>
+              <div className="flex flex-wrap gap-2 text-sm">
+                {selectedSeats.filter(Boolean).length > 0 ? (
+                  selectedSeats.filter(Boolean).map((s, i) => (
+                    <span key={`${s}-${i}`} className="px-2 py-1 rounded bg-white border">{s}</span>
+                  ))
+                ) : (
+                  <span className="text-slate-500">None</span>
+                )}
+              </div>
+              
+            </div>
+          </div>
+        )}
       </div>
       <div className=" flex flex-row justify-center mb-4 mt-4">
         <button
