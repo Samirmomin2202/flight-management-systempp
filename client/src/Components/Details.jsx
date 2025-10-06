@@ -13,7 +13,7 @@ import useFlightStore from "./zustand store/ZStore";
 import { v4 as uuidv4 } from "uuid";
 import { toast, ToastContainer } from "react-toastify";
 
-const PassengerData = ({ filledFormList, setFilledFormList, bookingId, selectedSeats, setSelectedSeats, index }) => {
+const PassengerData = ({ filledFormList, setFilledFormList, bookingId, selectedSeats, setSelectedSeats, index, seatRows, isExitRow }) => {
   const { passengers, bookedFlight, getAllBookings, allBookings, getPassengersInfo } =
     useFlightStore();
   const currentUser = useSelector(user); // Get current user from Redux
@@ -111,9 +111,8 @@ const PassengerData = ({ filledFormList, setFilledFormList, bookingId, selectedS
 
   // Assign a random available seat for this passenger (UI-only)
   const assignRandomSeat = () => {
-    const rows = Array.from({ length: 12 }).map((_, r) => 12 + r); // 12..23
+    const rows = seatRows; // dynamic rows from parent
     const cols = ["A", "B", "C", "D"]; // 2–2 layout
-    const isExitRow = (row) => row === 17 || row === 18;
 
     // Build all seat codes with priority buckets
     const buckets = {
@@ -469,11 +468,10 @@ const PassengerData = ({ filledFormList, setFilledFormList, bookingId, selectedS
             </div>
             <div className="mt-2 space-y-2">
               {
-                // 12 rows (12–23), 4 seats per row (A–B | aisle | C–D)
-                Array.from({ length: 12 }).map((_, rIdx) => {
-                  const row = 12 + rIdx; // 12..23
+                // Dynamic rows based on seat capacity, 4 seats per row (A–B | aisle | C–D)
+                seatRows.map((row) => {
                   const leftCols = ["A","B"]; const rightCols = ["C","D"];
-                  const isExitRow = row === 17 || row === 18; // EXIT rows
+                  const exitRow = isExitRow(row); // EXIT rows
 
                   const renderSeat = (col) => {
                     const code = `${row}${col}`;
@@ -481,7 +479,7 @@ const PassengerData = ({ filledFormList, setFilledFormList, bookingId, selectedS
                     const mine = passengerInfo.seat === code;
                     // Demo pricing: window seats and exit row seats show ₹
                     const isWindow = col === 'A' || col === 'D';
-                    const priced = isWindow || isExitRow;
+                    const priced = isWindow || exitRow;
                     return (
                       <button
                         type="button"
@@ -510,7 +508,7 @@ const PassengerData = ({ filledFormList, setFilledFormList, bookingId, selectedS
                       <div className="flex gap-2">{leftCols.map(renderSeat)}</div>
                       <div className="w-6" />
                       <div className="flex gap-2">{rightCols.map(renderSeat)}</div>
-                      {isExitRow && (
+                      {exitRow && (
                         <div className="ml-3 text-[10px] text-slate-500 tracking-wider flex items-center gap-1">
                           <span>««</span>
                           <span>EXIT</span>
@@ -623,7 +621,28 @@ const Details = () => {
         
         if (result.success) {
           console.log("✅ Debug - Booking details fetched:", result.booking);
-          setBookingDetails(result.booking);
+          const baseBooking = result.booking;
+          // Try to enrich with flight seatCapacity via flightNo if missing
+          if (!baseBooking.seatCapacity && baseBooking.flightNo) {
+            try {
+              const fr = await fetch("http://localhost:5000/api/flights");
+              const fj = await fr.json();
+              if (fj.success && Array.isArray(fj.flights)) {
+                const match = fj.flights.find((fl) => fl.flightNo === baseBooking.flightNo);
+                if (match) {
+                  setBookingDetails({ ...baseBooking, seatCapacity: match.seatCapacity, airline: match.airline });
+                } else {
+                  setBookingDetails(baseBooking);
+                }
+              } else {
+                setBookingDetails(baseBooking);
+              }
+            } catch {
+              setBookingDetails(baseBooking);
+            }
+          } else {
+            setBookingDetails(baseBooking);
+          }
         } else {
           console.error("❌ Debug - Failed to fetch booking:", result.message);
           // If we still can't fetch, try to use the flightData as fallback
@@ -653,12 +672,14 @@ const Details = () => {
       console.log("🧭 Prefilling details from selected flight in store", bookedFlight);
       setBookingDetails({
         flightNo: bookedFlight.flightNo,
+        airline: bookedFlight.airline,
         from: bookedFlight.from,
         to: bookedFlight.to,
         departure: bookedFlight.departure,
         arrival: bookedFlight.arrival,
         price: bookedFlight.price,
         passengers: passengers || 1,
+        seatCapacity: bookedFlight.seatCapacity,
       });
     }
   }, [id, bookedFlight, passengers]);
@@ -670,6 +691,13 @@ const Details = () => {
   
   const notify = (text) => toast(text);
   const passengerArray = new Array(paxCount).fill(null);
+
+  // Derive seat rows from capacity (2–2 layout => 4 seats per row). Default 48 => rows 12..23.
+  const capacity = Number(bookingDetails?.seatCapacity) || 48;
+  const totalRows = Math.max(1, Math.ceil(capacity / 4));
+  const startRow = 12;
+  const seatRows = Array.from({ length: totalRows }).map((_, i) => startRow + i);
+  const isExitRow = (row) => row === 17 || row === 18;
   
   // Global Randomize All removed by request
   
@@ -795,6 +823,8 @@ const Details = () => {
                 selectedSeats={selectedSeats}
                 setSelectedSeats={setSelectedSeats}
                 index={index}
+                seatRows={seatRows}
+                isExitRow={isExitRow}
               />
             </div>
           ))}
@@ -812,6 +842,9 @@ const Details = () => {
                 ) : (
                   <span className="text-slate-500">None</span>
                 )}
+              </div>
+              <div className="mt-2 text-xs text-slate-500">
+                Capacity: {capacity} seats • Rows: {seatRows[0]}–{seatRows[seatRows.length - 1]}
               </div>
               
             </div>

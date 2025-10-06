@@ -6,11 +6,13 @@ const AdminFlights = () => {
   const [flights, setFlights] = useState([]);
   const [form, setForm] = useState({
     flightNo: "",
+    airline: "",
     from: "",
     to: "",
     departure: "",
     arrival: "",
     price: "",
+    seatCapacity: "",
   });
   const [editId, setEditId] = useState(null);
 
@@ -39,11 +41,13 @@ const AdminFlights = () => {
     e.preventDefault();
     if (
       !form.flightNo ||
+      !form.airline ||
       !form.from ||
       !form.to ||
       !form.departure ||
       !form.arrival ||
-      !form.price
+      !form.price ||
+      !form.seatCapacity
     ) {
       alert("Please fill all fields");
       return;
@@ -56,13 +60,21 @@ const AdminFlights = () => {
       return;
     }
 
+    const capacityNum = Number(form.seatCapacity);
+    if (!Number.isFinite(capacityNum) || capacityNum <= 0) {
+      alert("Seat capacity must be a positive number");
+      return;
+    }
+
     const payload = {
       flightNo: form.flightNo.trim(),
+      airline: form.airline.trim(),
       from: form.from.trim(),
       to: form.to.trim(),
       departure: depDate.toISOString(),
       arrival: arrDate.toISOString(),
       price: Number(form.price),
+      seatCapacity: capacityNum,
     };
 
     try {
@@ -76,11 +88,13 @@ const AdminFlights = () => {
         alert(res.data.message);
         setForm({
           flightNo: "",
+          airline: "",
           from: "",
           to: "",
           departure: "",
           arrival: "",
           price: "",
+          seatCapacity: "",
         });
         setEditId(null);
         fetchFlights();
@@ -106,11 +120,13 @@ const AdminFlights = () => {
   const handleEdit = (flight) => {
     setForm({
       flightNo: flight.flightNo,
+      airline: flight.airline || "",
       from: flight.from,
       to: flight.to,
       departure: new Date(flight.departure).toISOString().slice(0, 16),
       arrival: new Date(flight.arrival).toISOString().slice(0, 16),
       price: flight.price,
+      seatCapacity: flight.seatCapacity ?? "",
     });
     setEditId(flight._id);
   };
@@ -124,33 +140,32 @@ const AdminFlights = () => {
       {/* Form */}
       <form
         onSubmit={handleSubmit}
-        className="mb-6 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3 bg-white shadow-md p-4 rounded-xl"
+        className="mb-6 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-8 gap-3 bg-white shadow-md p-4 rounded-xl"
       >
-        {["flightNo", "from", "to", "departure", "arrival", "price"].map(
-          (field) => (
-            <input
-              key={field}
-              name={field}
-              type={
-                field === "price"
-                  ? "number"
-                  : field === "departure" || field === "arrival"
-                  ? "datetime-local"
-                  : "text"
-              }
-              value={form[field]}
-              onChange={handleChange}
-              placeholder={
-                field.charAt(0).toUpperCase() + field.slice(1).replace("_", " ")
-              }
-              className="border p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
-              required
-            />
-          )
-        )}
+        {[
+          { key: "flightNo", type: "text", label: "Flight No" },
+          { key: "airline", type: "text", label: "Airline" },
+          { key: "from", type: "text", label: "From" },
+          { key: "to", type: "text", label: "To" },
+          { key: "departure", type: "datetime-local", label: "Departure" },
+          { key: "arrival", type: "datetime-local", label: "Arrival" },
+          { key: "price", type: "number", label: "Price" },
+          { key: "seatCapacity", type: "number", label: "Seats" },
+        ].map((f) => (
+          <input
+            key={f.key}
+            name={f.key}
+            type={f.type}
+            value={form[f.key]}
+            onChange={handleChange}
+            placeholder={f.label}
+            className="border p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+            required
+          />
+        ))}
         <button
           type="submit"
-          className="bg-blue-700 hover:bg-blue-800 transition text-white p-2 rounded-lg col-span-1 md:col-span-3 lg:col-span-6 font-semibold shadow-md"
+          className="bg-blue-700 hover:bg-blue-800 transition text-white p-2 rounded-lg col-span-1 md:col-span-3 lg:col-span-8 font-semibold shadow-md"
         >
           {editId ? "Update Flight" : "Add Flight"}
         </button>
@@ -162,6 +177,7 @@ const AdminFlights = () => {
           <thead className="bg-blue-700 text-white">
             <tr>
               <th className="p-3">Flight No</th>
+              <th className="p-3">Airline</th>
               <th className="p-3">
                 <div className="flex items-center gap-1 whitespace-nowrap">
                   <PlaneTakeoff className="w-4 h-4" /> From
@@ -175,6 +191,7 @@ const AdminFlights = () => {
               <th className="p-3">Departure</th>
               <th className="p-3">Arrival</th>
               <th className="p-3">Price</th>
+              <th className="p-3">Seats</th>
               <th className="p-3">Actions</th>
             </tr>
           </thead>
@@ -186,6 +203,7 @@ const AdminFlights = () => {
                   className="border-b hover:bg-blue-50 transition"
                 >
                   <td className="p-3 font-semibold">{f.flightNo}</td>
+                  <td className="p-3">{f.airline || "-"}</td>
                   <td className="p-3">{f.from}</td>
                   <td className="p-3">{f.to}</td>
                   <td className="p-3">
@@ -197,6 +215,7 @@ const AdminFlights = () => {
                   <td className="p-3 text-green-700 font-bold">
                     ₹{f.price.toLocaleString()}
                   </td>
+                  <td className="p-3">{f.seatCapacity ?? 48}</td>
                   <td className="p-3 flex gap-2">
                     <button
                       className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded-lg shadow"
@@ -215,7 +234,7 @@ const AdminFlights = () => {
               ))
             ) : (
               <tr>
-                <td colSpan="7" className="text-center p-4">
+                <td colSpan="9" className="text-center p-4">
                   No flights found.
                 </td>
               </tr>

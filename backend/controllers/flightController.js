@@ -4,43 +4,53 @@ import Flight from "../models/Flight.js";
 const sampleFlights = [
   {
     flightNo: "AI101",
+    airline: "Air India",
     from: "Delhi",
     to: "Mumbai", 
     departure: new Date("2025-12-15T06:00:00Z"),
     arrival: new Date("2025-12-15T08:00:00Z"),
-    price: 5500
+    price: 5500,
+    seatCapacity: 120
   },
   {
     flightNo: "AI102", 
+    airline: "Air India",
     from: "Mumbai",
     to: "Bangalore",
     departure: new Date("2025-12-15T10:00:00Z"),
     arrival: new Date("2025-12-15T12:30:00Z"),
-    price: 4200
+    price: 4200,
+    seatCapacity: 96
   },
   {
     flightNo: "AI103",
+    airline: "Air India",
     from: "Bangalore",
     to: "Chennai",
     departure: new Date("2025-12-15T14:00:00Z"), 
     arrival: new Date("2025-12-15T15:30:00Z"),
-    price: 3800
+    price: 3800,
+    seatCapacity: 72
   },
   {
     flightNo: "AI104",
+    airline: "Air India",
     from: "Chennai",
     to: "Kolkata",
     departure: new Date("2025-12-15T16:00:00Z"),
     arrival: new Date("2025-12-15T18:30:00Z"),
-    price: 6200
+    price: 6200,
+    seatCapacity: 110
   },
   {
     flightNo: "AI105",
+    airline: "Air India",
     from: "Delhi",
     to: "Bangalore", 
     departure: new Date("2025-12-16T08:00:00Z"),
     arrival: new Date("2025-12-16T11:00:00Z"),
-    price: 7500
+    price: 7500,
+    seatCapacity: 140
   }
 ];
 
@@ -66,13 +76,13 @@ export const getFlights = async (req, res) => {
 // ADD a flight
 export const addFlight = async (req, res) => {
   try {
-    const { flightNo, from, to, departure, arrival, price } = req.body;
+    const { flightNo, airline, from, to, departure, arrival, price, seatCapacity } = req.body;
 
     // Check for duplicate flightNo
     const exists = await Flight.findOne({ flightNo });
     if (exists) return res.status(400).json({ success: false, message: "Flight number already exists!" });
 
-    const flight = new Flight({ flightNo, from, to, departure, arrival, price });
+  const flight = new Flight({ flightNo, airline, from, to, departure, arrival, price, seatCapacity });
     await flight.save();
 
     res.json({ success: true, message: "Flight added successfully", flight });

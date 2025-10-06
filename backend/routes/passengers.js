@@ -1,21 +1,39 @@
 // routes/passengers.js
 import express from "express";
 import Passenger from "../models/Passenger.js";
+import Booking from "../models/Booking.js";
+import Flight from "../models/Flight.js";
 
 const router = express.Router();
 
 // ✅ Create passenger record
 router.post("/", async (req, res) => {
   try {
-    const { bookingId, seat } = req.body;
+  const { bookingId, seat } = req.body;
 
     // Normalize/validate seat if provided
     if (seat) {
       const seatStr = String(seat).toUpperCase().trim();
-      // Accept rows 12-23 and columns A-D (2–2 layout)
-      const match = seatStr.match(/^(1[2-9]|2[0-3])[ABCD]$/);
-      if (!match) {
-        return res.status(400).json({ success: false, message: "Invalid seat format. Expected 12-23 with columns A-D (e.g., 14C)." });
+      // Determine valid row range based on flight seat capacity (4 seats per row)
+      let startRow = 12;
+      let endRow = 23; // default for 48 seats
+      try {
+        const booking = await Booking.findById(bookingId);
+        if (booking?.flightNo) {
+          const flight = await Flight.findOne({ flightNo: booking.flightNo });
+          if (flight?.seatCapacity && Number.isFinite(flight.seatCapacity)) {
+            const totalRows = Math.max(1, Math.ceil(Number(flight.seatCapacity) / 4));
+            endRow = startRow + totalRows - 1;
+          }
+        }
+      } catch {}
+
+      const rowPattern = `(${Array.from({ length: endRow - startRow + 1 })
+        .map((_, i) => startRow + i)
+        .join("|")})`;
+      const regex = new RegExp(`^${rowPattern}[ABCD]$`);
+      if (!regex.test(seatStr)) {
+        return res.status(400).json({ success: false, message: `Invalid seat. Allowed rows ${startRow}-${endRow} and columns A-D (e.g., 14C).` });
       }
       req.body.seat = seatStr;
       // Prevent duplicates for same booking

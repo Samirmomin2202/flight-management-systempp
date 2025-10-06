@@ -10,8 +10,10 @@ import { accesstoken } from "./redux/tokenSlice";
 import { user } from "./redux/userSlice";
 
 const Flights = () => {
-  const [flights, setFlights] = useState([]);
+  const [allFlights, setAllFlights] = useState([]); // raw from API
+  const [flights, setFlights] = useState([]); // upcoming only
   const [filteredFlights, setFilteredFlights] = useState([]);
+  const [showAll, setShowAll] = useState(false);
   const [search, setSearch] = useState({
     from: "",
     to: "",
@@ -43,7 +45,8 @@ const Flights = () => {
         
         if (res.data.success) {
           console.log("✅ Raw flights from API:", res.data.flights);
-          const upcomingFlights = filterUpcomingFlights(res.data.flights);
+          setAllFlights(res.data.flights || []);
+          const upcomingFlights = filterUpcomingFlights(res.data.flights || []);
           console.log("🕒 Upcoming flights after filtering:", upcomingFlights);
           setFlights(upcomingFlights);
           setFilteredFlights(upcomingFlights);
@@ -64,8 +67,9 @@ const Flights = () => {
 
   const handleSearch = (e) => {
     e.preventDefault();
-    const { from, to, date } = search;
-    let filtered = filterUpcomingFlights(flights);
+  const { from, to, date } = search;
+  const base = showAll ? allFlights : flights;
+  let filtered = [...base];
     if (from)
       filtered = filtered.filter((f) =>
         f.from.toLowerCase().includes(from.toLowerCase())
@@ -211,6 +215,11 @@ const Flights = () => {
                   <Plane className="text-blue-700" />
                   <h3 className="text-lg font-bold">{f.flightNo}</h3>
                 </div>
+                {f.airline && (
+                  <p className="text-sm">
+                    <span className="font-semibold">Airline:</span> {f.airline}
+                  </p>
+                )}
                 <p className="text-sm">
                   <span className="font-semibold">From:</span> {f.from}
                 </p>
@@ -225,6 +234,11 @@ const Flights = () => {
                   <span className="font-semibold">Arrival:</span>{" "}
                   {new Date(f.arrival).toLocaleString()}
                 </p>
+                {typeof f.seatCapacity !== 'undefined' && (
+                  <p className="text-sm">
+                    <span className="font-semibold">Seats:</span> {f.seatCapacity}
+                  </p>
+                )}
                 <p className="text-sm mt-2 font-semibold text-green-700">
                   Price: ₹{f.price}
                 </p>
@@ -238,9 +252,35 @@ const Flights = () => {
             </div>
           ))
         ) : (
-          <p className="text-center col-span-full text-gray-500">
-            No flights found.
-          </p>
+          <div className="text-center col-span-full text-gray-600 space-y-3">
+            <p>No flights found for the selected filters.</p>
+            <div className="flex items-center justify-center gap-3">
+              {!showAll && (
+                <button
+                  type="button"
+                  className="px-4 py-2 border rounded-lg bg-white hover:bg-gray-50"
+                  onClick={() => {
+                    setShowAll(true);
+                    setFilteredFlights(allFlights);
+                  }}
+                >
+                  Show all flights (incl. past)
+                </button>
+              )}
+              {showAll && (
+                <button
+                  type="button"
+                  className="px-4 py-2 border rounded-lg bg-white hover:bg-gray-50"
+                  onClick={() => {
+                    setShowAll(false);
+                    setFilteredFlights(flights);
+                  }}
+                >
+                  Show upcoming only
+                </button>
+              )}
+            </div>
+          </div>
         )}
       </div>
       <ToastContainer position="top-right" autoClose={3000} />
