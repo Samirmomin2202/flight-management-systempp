@@ -13,6 +13,7 @@ const AdminFlights = () => {
     arrival: "",
     price: "",
     seatCapacity: "",
+    cabinClass: "Economy",
   });
   const [editId, setEditId] = useState(null);
 
@@ -47,7 +48,8 @@ const AdminFlights = () => {
       !form.departure ||
       !form.arrival ||
       !form.price ||
-      !form.seatCapacity
+      !form.seatCapacity ||
+      !form.cabinClass
     ) {
       alert("Please fill all fields");
       return;
@@ -75,6 +77,7 @@ const AdminFlights = () => {
       arrival: arrDate.toISOString(),
       price: Number(form.price),
       seatCapacity: capacityNum,
+      cabinClass: form.cabinClass,
     };
 
     try {
@@ -95,6 +98,7 @@ const AdminFlights = () => {
           arrival: "",
           price: "",
           seatCapacity: "",
+          cabinClass: "Economy",
         });
         setEditId(null);
         fetchFlights();
@@ -127,6 +131,7 @@ const AdminFlights = () => {
       arrival: new Date(flight.arrival).toISOString().slice(0, 16),
       price: flight.price,
       seatCapacity: flight.seatCapacity ?? "",
+      cabinClass: flight.cabinClass || "Economy",
     });
     setEditId(flight._id);
   };
@@ -163,6 +168,18 @@ const AdminFlights = () => {
             required
           />
         ))}
+        <select
+          name="cabinClass"
+          value={form.cabinClass}
+          onChange={handleChange}
+          className="border p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+          required
+        >
+          <option>Economy</option>
+          <option>Premium Economy</option>
+          <option>Business</option>
+          <option>First</option>
+        </select>
         <button
           type="submit"
           className="bg-blue-700 hover:bg-blue-800 transition text-white p-2 rounded-lg col-span-1 md:col-span-3 lg:col-span-8 font-semibold shadow-md"
@@ -192,6 +209,7 @@ const AdminFlights = () => {
               <th className="p-3">Arrival</th>
               <th className="p-3">Price</th>
               <th className="p-3">Seats</th>
+              <th className="p-3">Type</th>
               <th className="p-3">Actions</th>
             </tr>
           </thead>
@@ -216,6 +234,7 @@ const AdminFlights = () => {
                     ₹{f.price.toLocaleString()}
                   </td>
                   <td className="p-3">{f.seatCapacity ?? 48}</td>
+                  <td className="p-3">{f.cabinClass || "Economy"}</td>
                   <td className="p-3 flex gap-2">
                     <button
                       className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded-lg shadow"
@@ -234,7 +253,7 @@ const AdminFlights = () => {
               ))
             ) : (
               <tr>
-                <td colSpan="9" className="text-center p-4">
+                <td colSpan="10" className="text-center p-4">
                   No flights found.
                 </td>
               </tr>

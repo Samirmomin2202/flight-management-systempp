@@ -20,4 +20,14 @@ router.post("/", async (req, res) => {
   }
 });
 
+// GET /api/contact - list all messages (admin view)
+router.get("/", async (_req, res) => {
+  try {
+    const contacts = await Contact.find({}).sort({ createdAt: -1 });
+    res.json({ success: true, contacts });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 export default router;

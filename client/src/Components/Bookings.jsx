@@ -21,12 +21,21 @@ const Bookings = () => {
   const { allBookings: storeBookings, removeBooking } = useFlightStore();
   const [allBookings, setAllBookings] = useState([]);
   const [loading, setLoading] = useState(true);
+  // Reverted: do not compute latest booking id for header button
+  const handleViewCurrent = () => {
+    const latest = allBookings && allBookings.length > 0 ? allBookings[0]._id : null;
+    if (latest) {
+      navigate(`/ticket/${latest}`);
+    } else {
+      toast.info("No current booking found.");
+    }
+  };
   
   // Get user and token from Redux
   const currentUser = useSelector(user);
   const token = useSelector(accesstoken);
 
-  // 🔹 Informational auth check (do not block guest view)
+  // Informational auth check (guest allowed)
   useEffect(() => {
     const cookieToken = Cookies.get("token");
     if (!token && !cookieToken) {
@@ -55,13 +64,13 @@ const Bookings = () => {
           if (recent) userEmail = recent;
         } catch {}
       }
+      const authToken = token || Cookies.get("token");
       if (!userEmail) {
         console.log("ℹ️ No email available to query bookings.");
         setAllBookings([]);
         setLoading(false);
         return;
       }
-      const authToken = token || Cookies.get("token");
       
       console.log(`🔍 Attempting to fetch bookings for user: ${userEmail}`);
       if (authToken) {
@@ -73,7 +82,7 @@ const Bookings = () => {
       // Test basic server connectivity first
       try {
         console.log("🧪 Testing server connection...");
-        const testResponse = await axios.get('http://localhost:5000/api/test');
+        await axios.get('http://localhost:5000/api/test');
         console.log("✅ Server connection test passed");
       } catch (serverError) {
         console.error("❌ Server connection failed:", serverError.message);
@@ -98,9 +107,8 @@ const Bookings = () => {
         };
 
         // Add user email as query parameter for fallback
-        const url = userEmail ? `/?userEmail=${encodeURIComponent(userEmail)}` : '/';
-        
-        const response = await bookingAPI.get(url, config);
+  const url = userEmail ? `/?userEmail=${encodeURIComponent(userEmail)}` : '/';
+  const response = await bookingAPI.get(url, config);
         
         if (response.data.success && response.data.bookings) {
           console.log("✅ Fetched bookings from MongoDB:", response.data.bookings);
@@ -116,8 +124,8 @@ const Bookings = () => {
         console.error("❌ Error fetching bookings from MongoDB:", error);
         
         if (error.response?.status === 401) {
-          toast.error("Authentication expired. Please login again.");
-          navigate("/login");
+          // In public-first mode, treat 401 as non-fatal (older servers may not require auth)
+          toast.info("Authentication optional. Try logging in if you expected results.");
         } else if (error.response?.status === 403) {
           toast.error("Access denied. You can only view your own bookings.");
         } else if (error.code === 'ECONNREFUSED' || error.message.includes('Network Error')) {
@@ -212,12 +220,13 @@ const Bookings = () => {
           <h2 className="font-bold sm:text-xl">
             ALL BOOKINGS ({allBookings ? allBookings.length : 0})
           </h2>
-          <Link 
-            to="/booked" 
+          <button
+            type="button"
+            onClick={handleViewCurrent}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm"
           >
             View Current Booking
-          </Link>
+          </button>
         </div>
 
         {!allBookings || allBookings.length === 0 ? (

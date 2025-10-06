@@ -8,6 +8,8 @@ import passengersRoutes from "./routes/passengers.js";
 import adminRoutes from "./routes/admin.js";
 import userRoute from "./src/apis/users/user.route.js";
 import contactRoutes from "./routes/contact.js";
+import path from "path";
+import { fileURLToPath } from "url";
 
 dotenv.config();
 const app = express();
@@ -18,6 +20,10 @@ app.use(cors({
   methods: ["GET", "POST", "PUT", "DELETE"],
 }));
 app.use(express.json());
+// Static uploads
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+// Note: static uploads removed after undoing slides feature
 
 // Simple health check
 app.get('/api/test', (req, res) => {
@@ -30,6 +36,7 @@ app.use("/api/bookings", bookingsRoutes);
 app.use("/api/passengers", passengersRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/contact", contactRoutes);
+// app.use("/api/slides", slidesRoutes); // removed
 // User routes (signup/login)
 app.use("/api/user", userRoute);
 app.use("/user", userRoute);

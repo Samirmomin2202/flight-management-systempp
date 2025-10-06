@@ -14,6 +14,7 @@ const Signup = () => {
 
   const [status, setStatus] = useState({ success: "", error: "" });
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleOnChange = (e) => {
     const { name, value } = e.target;
@@ -58,93 +59,107 @@ const Signup = () => {
   };
 
   return (
-    <div
-      className="min-h-screen flex justify-center items-center bg-cover bg-center"
-      style={{ backgroundImage: "url('/signup.jpg')" }}
-    >
-      <div className="bg-white p-8 rounded shadow-md w-full max-w-md">
-        <h3 className="text-lg font-medium mb-2 text-center">Create an Account</h3>
-
-        <form onSubmit={handleSignUp} className="space-y-4">
-          <div className="grid grid-cols-2 gap-2">
-            <input
-              name="username"
-              placeholder="First Name"
-              onChange={handleOnChange}
-              required
-              className="border p-2 rounded"
-            />
-            <input
-              name="surname"
-              placeholder="Surname"
-              onChange={handleOnChange}
-              required
-              className="border p-2 rounded"
-            />
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-white to-slate-100">
+      <div className="w-full max-w-lg mx-auto p-4">
+        <div className="bg-white rounded-2xl shadow-xl border border-slate-200 p-8">
+          <div className="mb-6 text-center">
+            <h1 className="text-2xl font-extrabold text-slate-900">Create your account</h1>
+            <p className="text-sm text-slate-600">Join to book and manage your flights easily</p>
           </div>
 
-          <input
-            name="email"
-            type="email"
-            placeholder="Email"
-            onChange={handleOnChange}
-            required
-            className="border w-full p-2 rounded"
-          />
-          <input
-            name="password"
-            type="password"
-            placeholder="Password"
-            onChange={handleOnChange}
-            required
-            className="border w-full p-2 rounded"
-          />
+          <form onSubmit={handleSignUp} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="flex flex-col">
+                <label className="text-sm font-medium text-slate-700" htmlFor="username">First Name</label>
+                <input
+                  id="username"
+                  name="username"
+                  placeholder="John"
+                  onChange={handleOnChange}
+                  required
+                  className="mt-1 border p-2.5 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              <div className="flex flex-col">
+                <label className="text-sm font-medium text-slate-700" htmlFor="surname">Surname</label>
+                <input
+                  id="surname"
+                  name="surname"
+                  placeholder="Doe"
+                  onChange={handleOnChange}
+                  required
+                  className="mt-1 border p-2.5 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+            </div>
 
-          <div className="text-xs">
-            <input type="checkbox" required className="mr-1" />
-            I agree to the{" "}
-            <Link to="#" className="text-blue-600">
-              Disclaimer & Terms
-            </Link>
+            <div className="flex flex-col">
+              <label className="text-sm font-medium text-slate-700" htmlFor="email">Email</label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                placeholder="you@example.com"
+                onChange={handleOnChange}
+                required
+                className="mt-1 border w-full p-2.5 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+
+            <div className="flex flex-col">
+              <label className="text-sm font-medium text-slate-700" htmlFor="password">Password</label>
+              <div className="relative">
+                <input
+                  id="password"
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Create a strong password"
+                  onChange={handleOnChange}
+                  required
+                  className="mt-1 border w-full p-2.5 pr-16 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((s) => !s)}
+                  className="absolute top-1/2 -translate-y-1/2 right-2 text-xs text-blue-700 font-semibold px-2 py-1 rounded hover:bg-blue-50"
+                >
+                  {showPassword ? "Hide" : "Show"}
+                </button>
+              </div>
+            </div>
+
+            <div className="text-xs">
+              <label className="inline-flex items-center">
+                <input type="checkbox" required className="mr-2" />
+                I agree to the <Link to="#" className="text-blue-700 hover:underline ml-1">Disclaimer & Terms</Link>
+              </label>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className={`w-full py-2.5 rounded-lg text-white shadow-lg transition duration-200 ${
+                loading
+                  ? "bg-gray-400"
+                  : "bg-gradient-to-r from-blue-700 to-blue-900 hover:from-blue-600 hover:to-blue-800"
+              }`}
+            >
+              {loading ? "Signing up..." : "Create account"}
+            </button>
+
+            {status.error && (
+              <p className="text-red-600 text-sm mt-2">{status.error}</p>
+            )}
+            {status.success && (
+              <p className="text-green-600 text-sm mt-2">{status.success}</p>
+            )}
+          </form>
+
+          <div className="mt-6 text-center text-sm">
+            <span className="text-slate-700">Already have an account? </span>
+            <Link to="/login" className="font-semibold text-blue-700 hover:underline">Sign in</Link>
           </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className={`w-full py-2 rounded text-white ${
-              loading
-                ? "bg-gray-400"
-                : "bg-[#0F172A] hover:bg-[#1E293B] transition duration-200"
-            }`}
-          >
-            {loading ? "Signing up..." : "Sign Up"}
-          </button>
-
-          {status.error && (
-            <p className="text-red-600 text-sm mt-2">{status.error}</p>
-          )}
-          {status.success && (
-            <p className="text-green-600 text-sm mt-2">{status.success}</p>
-          )}
-        </form>
-
-        <div className="flex items-center my-4">
-          <hr className="flex-grow" />
-          <span className="mx-2 text-sm">OR</span>
-          <hr className="flex-grow" />
         </div>
-
-        <button className="border w-full py-2 rounded mb-4 flex items-center justify-center gap-2 hover:bg-gray-100 transition duration-200">
-          <i className="fab fa-google text-red-600"></i>
-          <span>Sign up with Google</span>
-        </button>
-
-        <p className="text-sm text-center">
-          Already have an account?{" "}
-          <Link to="/login" className="text-blue-600">
-            Login
-          </Link>
-        </p>
       </div>
     </div>
   );

@@ -1,6 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import axios from "axios";
+import { useSelector } from "react-redux";
+import { user } from "./redux/userSlice";
+import { accesstoken } from "./redux/tokenSlice";
+import Cookies from "js-cookie";
 import { toast, ToastContainer, Slide } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { PlaneTakeoff, PlaneLanding, Eye } from "lucide-react";
@@ -12,6 +16,8 @@ const Booked = () => {
   const [passengers, setPassengers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const currentUser = useSelector(user);
+  const token = useSelector(accesstoken);
 
   const formatPrice = (value) =>
     new Intl.NumberFormat("en-IN", {
@@ -25,7 +31,18 @@ const Booked = () => {
     let canceled = false;
     const fetchData = async () => {
       try {
-        const resBooking = await axios.get(`http://localhost:5000/api/bookings/${id}`);
+        // Public-first fetch
+        let resBooking = await axios.get(`http://localhost:5000/api/bookings/${id}`);
+        if (resBooking.status === 401 || resBooking.status === 403) {
+          const authToken = token || Cookies.get("token");
+          const userEmail = currentUser?.email || "";
+          if (!authToken) throw new Error("Authentication required");
+          const config = { headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' } };
+          const url = userEmail
+            ? `http://localhost:5000/api/bookings/${id}?userEmail=${encodeURIComponent(userEmail)}`
+            : `http://localhost:5000/api/bookings/${id}`;
+          resBooking = await axios.get(url, config);
+        }
         if (resBooking?.data?.success && resBooking.data.booking) {
           if (!canceled) {
             setBooking(resBooking.data.booking);
@@ -43,7 +60,16 @@ const Booked = () => {
           if (!canceled) setPassengers(resPassengers.data.passengers);
         }
       } catch (err) {
-        setError(err.response?.data?.message || err.message);
+        const status = err.response?.status;
+        if (status === 401) {
+          setError("Authentication required");
+        } else if (status === 403) {
+          setError("Access denied. You can only view your own ticket.");
+        } else if (status === 404) {
+          setError("Ticket not found");
+        } else {
+          setError(err.response?.data?.message || err.message);
+        }
       } finally {
         if (!canceled) setLoading(false);
       }

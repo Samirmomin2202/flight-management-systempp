@@ -32,18 +32,17 @@ const ViewTicket = () => {
     const fetchTicketData = async () => {
       try {
         console.log(`🎫 Fetching ticket details for booking: ${id}`);
-        // First try unauthenticated (our backend allows GET /bookings/:id without auth)
+        // First try unauthenticated
         let res = await axios.get(`http://localhost:5000/api/bookings/${id}`);
-
-        // If unauthorized (older backends), fallback to token if present
-        if (res.status === 401) {
+        if (res.status === 401 || res.status === 403) {
+          // Fallback to authenticated fetch if server requires it
           const authToken = token || Cookies.get("token");
-          const userEmail = currentUser?.email;
+          const userEmail = currentUser?.email || "";
           if (!authToken) throw new Error("Authentication required");
           const config = { headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' } };
-          const url = userEmail ?
-            `http://localhost:5000/api/bookings/${id}?userEmail=${encodeURIComponent(userEmail)}` :
-            `http://localhost:5000/api/bookings/${id}`;
+          const url = userEmail
+            ? `http://localhost:5000/api/bookings/${id}?userEmail=${encodeURIComponent(userEmail)}`
+            : `http://localhost:5000/api/bookings/${id}`;
           res = await axios.get(url, config);
         }
 
@@ -61,7 +60,6 @@ const ViewTicket = () => {
         if (status === 401) {
           setError("Authentication required");
           toast.error("Please login to view your ticket");
-          // Do NOT auto-redirect; let user decide
         } else if (status === 403) {
           setError("Access denied");
           toast.error("Access denied. You can only view your own tickets.");
@@ -412,7 +410,7 @@ const ViewTicket = () => {
               >
                 {/* Red top header */}
                 <div style={{ background: "#ef4444", color: "#fff", padding: "14px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div style={{ fontWeight: 800, letterSpacing: "0.06em" }}>✈ AIRLINES</div>
+                  <div style={{ fontWeight: 800, letterSpacing: "0.06em" }}>FLIGTH HUB4</div>
                   <div style={{ fontWeight: 800, letterSpacing: "0.08em" }}>BOARDING PASS</div>
                 </div>
 
@@ -439,8 +437,8 @@ const ViewTicket = () => {
                     {/* Detail grid */}
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", background: "#f9fafb", borderRadius: 12, padding: 16 }}>
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", rowGap: 8, columnGap: 10 }}>
-                        <div style={{ fontSize: 12, color: "#6b7280" }}>Passenger</div>
-                        <div style={{ fontWeight: 700, color: "#111827" }}>{paxName}</div>
+                        <div style={{ fontSize: 12, color: "#6b7280" }}>Issued By</div>
+                        <div style={{ fontWeight: 700, color: "#111827" }}>fligth hub4</div>
                         <div style={{ fontSize: 12, color: "#6b7280" }}>Flight</div>
                         <div style={{ fontWeight: 700, color: "#111827" }}>{booking.flightNo || "—"}</div>
                         <div style={{ fontSize: 12, color: "#6b7280" }}>Gate</div>
@@ -472,8 +470,8 @@ const ViewTicket = () => {
                   <div style={{ padding: "18px 18px 12px 18px" }}>
                     <div style={{ fontWeight: 800, fontSize: 14, color: "#111827", marginBottom: 6 }}>BOARDING PASS</div>
                     <div style={{ background: "#f9fafb", borderRadius: 12, padding: 14, display: "grid", gridTemplateColumns: "1fr 1fr", rowGap: 8, columnGap: 10 }}>
-                      <div style={{ fontSize: 12, color: "#6b7280" }}>Passenger</div>
-                      <div style={{ fontWeight: 700 }}>{paxName}</div>
+                      <div style={{ fontSize: 12, color: "#6b7280" }}>Issued By</div>
+                      <div style={{ fontWeight: 700 }}>fligth hub4</div>
                       <div style={{ fontSize: 12, color: "#6b7280" }}>From</div>
                       <div style={{ fontWeight: 700 }}>{booking.from}</div>
                       <div style={{ fontSize: 12, color: "#6b7280" }}>To</div>

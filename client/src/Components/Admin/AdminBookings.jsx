@@ -6,6 +6,8 @@ const AdminBookings = () => {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [statusChanges, setStatusChanges] = useState({}); // bookingId -> status
+  const [savingId, setSavingId] = useState(null);
 
   useEffect(() => {
     const fetchAllBookings = async () => {
@@ -40,29 +42,49 @@ const AdminBookings = () => {
     }
   };
 
-  const handleEdit = async (booking) => {
-    // Minimal inline edit: change status and price
-    const newStatus = prompt("Enter new status (confirmed, cancelled, scheduled, etc)", booking.status || "confirmed");
-    if (newStatus === null) return;
-    const newPriceStr = prompt("Enter new price", String(booking.price ?? ""));
-    if (newPriceStr === null) return;
-    const newPrice = Number(newPriceStr);
-    if (Number.isNaN(newPrice)) {
-      return alert("Invalid price");
+  const handleStatusChange = (bookingId, value) => {
+    setStatusChanges((prev) => ({ ...prev, [bookingId]: value }));
+  };
+
+  const handleSaveStatus = async (booking) => {
+    const selected = (statusChanges[booking._id] || booking.status || "confirmed").toLowerCase();
+    if (!["confirmed", "cancelled"].includes(selected)) {
+      alert("Invalid status. Allowed: confirmed or cancelled");
+      return;
     }
+    // If no change, no-op
+    if ((booking.status || "confirmed").toLowerCase() === selected) return;
     try {
+      setSavingId(booking._id);
       const res = await axios.put(`http://localhost:5000/api/bookings/${booking._id}`, {
-        status: newStatus,
-        price: newPrice,
+        status: selected,
       });
       if (res.data.success) {
-        setBookings((prev) => prev.map((b) => (b._id === booking._id ? res.data.booking : b)));
+        setBookings((prev) =>
+          prev.map((b) => {
+            if (b._id !== booking._id) return b;
+            const updated = res.data.booking || {};
+            // Merge to preserve passengers list if API doesn't include it
+            return {
+              ...b,
+              ...updated,
+              passengers: updated.passengers ?? b.passengers,
+            };
+          })
+        );
+        setStatusChanges((prev) => {
+          const next = { ...prev };
+          delete next[booking._id];
+          return next;
+        });
       } else {
         alert(res.data.message || "Update failed");
       }
     } catch (err) {
       console.error("Update failed:", err);
       alert(err.response?.data?.message || err.message);
+    } finally {
+      setSavingId(null);
     }
   };
 
@@ -87,6 +109,7 @@ const AdminBookings = () => {
                 <th className="px-4 py-2">From → To</th>
                 <th className="px-4 py-2">Departure</th>
                 <th className="px-4 py-2">Price</th>
+                <th className="px-4 py-2">Status</th>
                 <th className="px-4 py-2">Passengers</th>
                 <th className="px-4 py-2 text-center">Actions</th>
               </tr>
@@ -108,6 +131,16 @@ const AdminBookings = () => {
                   </td>
                   <td className="px-4 py-2">₹{b.price}</td>
                   <td className="px-4 py-2">
+                    <select
+                      className="border rounded px-2 py-1 text-sm"
+                      value={(statusChanges[b._id] ?? (b.status || "confirmed")).toLowerCase()}
+                      onChange={(e) => handleStatusChange(b._id, e.target.value)}
+                    >
+                      <option value="confirmed">Confirmed</option>
+                      <option value="cancelled">Cancelled</option>
+                    </select>
+                  </td>
+                  <td className="px-4 py-2">
                     {b.passengers && b.passengers.length > 0 ? (
                       <ul className="list-disc list-inside text-sm">
                         {b.passengers.map((p) => (
@@ -124,10 +157,11 @@ const AdminBookings = () => {
                   </td>
                   <td className="px-4 py-2 text-center space-x-2">
                     <button
-                      onClick={() => handleEdit(b)}
-                      className="bg-yellow-400 hover:bg-yellow-500 text-white px-3 py-1 rounded text-sm"
+                      onClick={() => handleSaveStatus(b)}
+                      disabled={savingId === b._id || ((statusChanges[b._id] ?? (b.status || "confirmed")).toLowerCase() === (b.status || "confirmed").toLowerCase())}
+                      className={`px-3 py-1 rounded text-sm text-white ${savingId === b._id ? "bg-gray-400" : "bg-yellow-500 hover:bg-yellow-600"}`}
                     >
-                      Edit
+                      {savingId === b._id ? "Saving…" : "Save"}
                     </button>
                     <button
                       onClick={() => handleDelete(b._id)}

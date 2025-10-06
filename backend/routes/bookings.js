@@ -92,19 +92,17 @@ router.get("/:id", async (req, res) => {
       console.log("❌ Booking not found for ID:", req.params.id);
       return res.status(404).json({ success: false, message: "Booking not found" });
     }
-    
-    console.log("✅ Booking found:", booking);
-    
-    // Get passengers for this booking
+
+    // Public-first view: return booking and passengers without strict auth
     const passengers = await Passenger.find({ bookingId: booking._id });
-    console.log("✅ Found passengers:", passengers);
-    
-    res.json({ 
-      success: true, 
+    console.log("✅ Found passengers:", passengers?.length || 0);
+
+    res.json({
+      success: true,
       booking: {
         ...booking.toObject(),
-        passengers
-      }
+        passengers,
+      },
     });
   } catch (err) {
     console.error("❌ Error fetching booking:", err);
@@ -130,7 +128,7 @@ router.delete("/:id", async (req, res) => {
 // ✅ Update booking (admin/editor)
 router.put("/:id", async (req, res) => {
   try {
-    const { flightNo, from, to, departure, arrival, price, status, passengers, userEmail } = req.body;
+    const { flightNo, from, to, departure, arrival, status, passengers, userEmail } = req.body;
 
     const update = {};
     if (flightNo !== undefined) update.flightNo = flightNo;
@@ -138,15 +136,28 @@ router.put("/:id", async (req, res) => {
     if (to !== undefined) update.to = to;
     if (departure !== undefined) update.departure = departure ? new Date(departure) : null;
     if (arrival !== undefined) update.arrival = arrival ? new Date(arrival) : null;
-    if (price !== undefined) update.price = price;
-    if (status !== undefined) update.status = status;
+    // Disallow price updates via this route
+    if (status !== undefined) {
+      const allowed = ["confirmed", "cancelled"]; // restrict to confirmation/cancellation
+      if (!allowed.includes(String(status).toLowerCase())) {
+        return res.status(400).json({ success: false, message: `Invalid status. Allowed: ${allowed.join(", ")}` });
+      }
+      update.status = String(status).toLowerCase();
+    }
     if (passengers !== undefined) update.passengers = passengers;
     if (userEmail !== undefined) update.userEmail = userEmail;
 
     const updated = await Booking.findByIdAndUpdate(req.params.id, update, { new: true });
     if (!updated) return res.status(404).json({ success: false, message: "Booking not found" });
 
-    res.json({ success: true, booking: updated });
+    // Also return passengers so clients can keep names/seat data in view
+    const passengersList = await Passenger.find({ bookingId: updated._id });
+    const bookingWithPassengers = {
+      ...updated.toObject(),
+      passengers: passengersList,
+    };
+
+    res.json({ success: true, booking: bookingWithPassengers });
   } catch (err) {
     console.error("Error updating booking:", err);
     res.status(500).json({ success: false, message: err.message });

@@ -27,7 +27,6 @@ const PassengerData = ({ filledFormList, setFilledFormList, bookingId, selectedS
   
   const randomId = uuidv4();
   const [genderSelected, setGenderSelected] = useState("null");
-  const [open, setOpen] = useState(true);
   const [passengerInfo, setPassengerInfo] = useState({
     sex: "",
     firstName: "",
@@ -199,7 +198,6 @@ const PassengerData = ({ filledFormList, setFilledFormList, bookingId, selectedS
           setFilledFormList((prev) => [...prev, "filled"]);
           toast.success("Passenger details saved. We'll create the booking next.");
           setFormFilled(true);
-          setOpen(false);
           return;
         }
 
@@ -312,20 +310,9 @@ const PassengerData = ({ filledFormList, setFilledFormList, bookingId, selectedS
               <span className="px-2 py-0.5 text-xs rounded-full border bg-slate-50">{passengerInfo.seat}</span>
             )}
           </div>
-          <div className="flex items-center gap-2">
-            <span className={`text-xs px-2 py-0.5 rounded-full ${formFilled ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
-              {formFilled ? 'Confirmed' : 'Pending'}
-            </span>
-            <button
-              type="button"
-              onClick={() => setOpen((o) => !o)}
-              className="text-xs px-2 py-1 rounded border bg-white hover:bg-slate-50"
-            >
-              {open ? 'Hide' : 'Show'}
-            </button>
-          </div>
+          {/* Status chip and Hide/Show toggle removed by request */}
         </div>
-        <div className={open ? '' : 'hidden'}>
+        <div>
         <div className="flex flex-col border-2 rounded-lg mb-4 bg-white w-full gap-8 ">
           <div>
             <div className="flex flex-col sm:flex-row w-full gap-5 mb-7">

@@ -19,6 +19,7 @@ import AdminDashboard from "./Components/Admin/AdminDashboard";
 import AdminFlights from "./Components/Admin/AdminFlights";
 import AdminBookings from "./Components/Admin/AdminBookings";
 import AdminUsers from "./Components/Admin/AdminUsers";
+import AdminContacts from "./Components/Admin/AdminContacts";
 import FlightDetails from "./Components/FlightDetails";
 import ViewTicket from "./Components/ViewTicket";
 import Details from "./Components/Details";
@@ -46,6 +47,8 @@ const AppContent = () => {
     "/admin/flights",
     "/admin/bookings",
     "/admin/users",
+    "/admin/contacts",
+    
   ];
   const shouldHideLayout = hideLayoutRoutes.includes(location.pathname);
 
@@ -62,6 +65,7 @@ const AppContent = () => {
         <Route path="/" element={<Home />} />
         <Route path="/flights" element={<Flights />} />
         <Route path="/bookings" element={<Bookings />} />          {/* List of bookings */}
+  <Route path="/booked" element={<Bookings />} />            {/* Legacy entry - show bookings list */}
         <Route path="/bookings/:id" element={<Booked />} />        {/* View single ticket */}
         <Route path="/ticket/:id" element={<ViewTicket />} />      {/* Enhanced ticket view */}
         <Route path="/booked/:id" element={<Booked />} />         {/* Single booking view */}
@@ -110,6 +114,15 @@ const AppContent = () => {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/admin/contacts"
+          element={
+            <ProtectedRoute>
+              <AdminContacts />
+            </ProtectedRoute>
+          }
+        />
+        
       </Routes>
 
       {!shouldHideLayout && <Footer />}
