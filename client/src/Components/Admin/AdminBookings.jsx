@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import AdminSidebar from "./AdminSidebar";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const AdminBookings = () => {
   const [bookings, setBookings] = useState([]);
@@ -42,14 +44,16 @@ const AdminBookings = () => {
     }
   };
 
-  const handleStatusChange = (bookingId, value) => {
-    setStatusChanges((prev) => ({ ...prev, [bookingId]: value }));
+  const handleStatusChange = (booking, value) => {
+    setStatusChanges((prev) => ({ ...prev, [booking._id]: value }));
+    // Auto-save on change
+    handleSaveStatus(booking, value);
   };
 
-  const handleSaveStatus = async (booking) => {
-    const selected = (statusChanges[booking._id] || booking.status || "confirmed").toLowerCase();
+  const handleSaveStatus = async (booking, selectedOverride) => {
+    const selected = (selectedOverride || statusChanges[booking._id] || booking.status || "confirmed").toLowerCase();
     if (!["confirmed", "cancelled"].includes(selected)) {
-      alert("Invalid status. Allowed: confirmed or cancelled");
+      toast.error("Invalid status. Allowed: confirmed or cancelled");
       return;
     }
     // If no change, no-op
@@ -77,12 +81,19 @@ const AdminBookings = () => {
           delete next[booking._id];
           return next;
         });
+        toast.success(`Status set to ${selected}`);
       } else {
-        alert(res.data.message || "Update failed");
+        toast.error(res.data.message || "Update failed");
       }
     } catch (err) {
       console.error("Update failed:", err);
-      alert(err.response?.data?.message || err.message);
+      toast.error(err.response?.data?.message || err.message);
+      // reset pending change
+      setStatusChanges((prev) => {
+        const next = { ...prev };
+        delete next[booking._id];
+        return next;
+      });
     } finally {
       setSavingId(null);
     }
@@ -134,7 +145,7 @@ const AdminBookings = () => {
                     <select
                       className="border rounded px-2 py-1 text-sm"
                       value={(statusChanges[b._id] ?? (b.status || "confirmed")).toLowerCase()}
-                      onChange={(e) => handleStatusChange(b._id, e.target.value)}
+                      onChange={(e) => handleStatusChange(b, e.target.value)}
                     >
                       <option value="confirmed">Confirmed</option>
                       <option value="cancelled">Cancelled</option>
