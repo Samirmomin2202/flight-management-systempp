@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import AdminSidebar from "./AdminSidebar";
-import { Bar, Line } from "react-chartjs-2";
+import { Bar, Line, Pie } from "react-chartjs-2";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -60,6 +60,7 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
+  const REFRESH_INTERVAL_MS = 30000; // auto-refresh every 30s
 
   const fetchStats = async () => {
     try {
@@ -80,31 +81,53 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     fetchStats();
+    // Auto-refresh periodically and on focus/visibility
+    const id = setInterval(() => {
+      fetchStats();
+    }, REFRESH_INTERVAL_MS);
+    const onFocus = () => fetchStats();
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') fetchStats();
+    };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      clearInterval(id);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
   }, []);
 
   const baseLabels = stats.weeklyFlights.labels.length ? stats.weeklyFlights.labels : ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
   const hourlyLabels = (stats.hourlyLabels && stats.hourlyLabels.length) ? stats.hourlyLabels : Array.from({ length: 24 }, (_, h) => h.toString().padStart(2, '0'));
   const hourlyBookings = (stats.hourlyBookings && stats.hourlyBookings.length) ? stats.hourlyBookings : Array.from({ length: 24 }, () => 0);
   const hourlyRevenue = (stats.hourlyRevenue && stats.hourlyRevenue.length) ? stats.hourlyRevenue : Array.from({ length: 24 }, () => 0);
+  // Daily series (last 7 days) used by charts below
+  const zeros = [0, 0, 0, 0, 0, 0, 0];
+  const dailyLabels = (stats.dailyLabels && stats.dailyLabels.length) ? stats.dailyLabels : baseLabels;
+  const dailyBookings = (stats.dailyBookings && stats.dailyBookings.length) ? stats.dailyBookings : zeros;
+  const dailyRevenue = (stats.dailyRevenue && stats.dailyRevenue.length) ? stats.dailyRevenue : zeros;
   const barData = {
-    labels: hourlyLabels,
+    labels: dailyLabels,
     datasets: [
       {
         type: "bar",
-        label: "Bookings (Today)",
-        data: hourlyBookings,
+        label: "Bookings (Daily)",
+        data: dailyBookings,
         backgroundColor: "rgba(16, 185, 129, 0.6)",
         borderRadius: 6,
         yAxisID: "y",
       },
       {
         type: "line",
-        label: "Revenue Today (₹)",
-        data: hourlyRevenue,
-        borderColor: "#f59e0b",
+        label: "Revenue (₹)",
+        data: dailyRevenue,
+        borderColor: "#fbbf24",
         backgroundColor: "rgba(245, 158, 11, 0.2)",
         borderWidth: 2,
-        tension: 0.3,
+        tension: 0.35,
+        pointRadius: 1,
+        pointHoverRadius: 4,
         yAxisID: "y1",
       },
     ],
@@ -131,7 +154,7 @@ const AdminDashboard = () => {
       },
     },
     plugins: {
-      legend: { position: "top" },
+      legend: { position: "top", labels: { usePointStyle: true } },
       tooltip: {
         backgroundColor: "rgba(17,24,39,0.9)",
         titleColor: "#F9FAFB",
@@ -164,39 +187,38 @@ const AdminDashboard = () => {
   };
 
   // New analysis datasets
-  const zeros = [0,0,0,0,0,0,0];
   const weeklyBookingsAll = (stats.weeklyBookings && stats.weeklyBookings.length) ? stats.weeklyBookings : zeros;
   const weeklyBookingsCompleted = (stats.weeklyBookingsCompleted && stats.weeklyBookingsCompleted.length) ? stats.weeklyBookingsCompleted : zeros;
   const weeklyBookingsCancelled = (stats.weeklyBookingsCancelled && stats.weeklyBookingsCancelled.length) ? stats.weeklyBookingsCancelled : zeros;
 
   // Daily (last 7 days) trending line for bookings and revenue
-  const dailyLabels = (stats.dailyLabels && stats.dailyLabels.length) ? stats.dailyLabels : baseLabels;
-  const dailyBookings = (stats.dailyBookings && stats.dailyBookings.length) ? stats.dailyBookings : zeros;
-  const dailyRevenue = (stats.dailyRevenue && stats.dailyRevenue.length) ? stats.dailyRevenue : zeros;
 
   const dailyLineData = {
-    labels: dailyLabels,
+    labels: hourlyLabels,
     datasets: [
       {
-        label: "Bookings (Daily)",
-        data: dailyBookings,
+        label: "Bookings (Hourly)",
+        data: hourlyBookings,
         borderColor: "#10B981",
         backgroundColor: "rgba(16, 185, 129, 0.15)",
-        borderWidth: 2,
+        borderWidth: 3,
         tension: 0.4,
-        pointRadius: 0,
-        pointHoverRadius: 4,
+        pointRadius: 2,
+        pointHoverRadius: 5,
+        pointStyle: 'circle',
         yAxisID: "y",
       },
       {
-        label: "Revenue (Daily ₹)",
-        data: dailyRevenue,
-        borderColor: "#f59e0b",
+        label: "Revenue Today (₹)",
+        data: hourlyRevenue,
+        borderColor: "#fbbf24",
         backgroundColor: "rgba(245, 158, 11, 0.15)",
         borderWidth: 2,
-        tension: 0.4,
-        pointRadius: 0,
-        pointHoverRadius: 4,
+        tension: 0.35,
+        pointRadius: 2,
+        pointHoverRadius: 5,
+        pointStyle: 'triangle',
+        borderDash: [6, 4],
         yAxisID: "y1",
       },
     ],
@@ -225,7 +247,7 @@ const AdminDashboard = () => {
       },
     },
     plugins: {
-      legend: { position: "top" },
+      legend: { position: "top", labels: { usePointStyle: true } },
       tooltip: {
         backgroundColor: "rgba(17,24,39,0.9)",
         titleColor: "#F9FAFB",
@@ -250,12 +272,14 @@ const AdminDashboard = () => {
     labels: dailyLabels,
     datasets: [
       {
-        label: "Profit (Daily ₹, 60%)",
+        label: "Profit (₹, 60%)",
         data: dailyProfit,
-        borderColor: "#6366F1",
+        borderColor: "#818cf8",
         backgroundColor: "rgba(99, 102, 241, 0.15)",
         borderWidth: 2,
-        tension: 0.3,
+        tension: 0.35,
+        pointRadius: 1,
+        pointHoverRadius: 4,
       },
     ],
   };
@@ -266,7 +290,7 @@ const AdminDashboard = () => {
       y: { beginAtZero: true, title: { display: true, text: "Profit (₹)" } },
     },
     plugins: {
-      legend: { position: "top" },
+      legend: { position: "top", labels: { usePointStyle: true } },
       tooltip: {
         callbacks: {
           label: function(context) {
@@ -281,6 +305,41 @@ const AdminDashboard = () => {
   // Removed revenue compare datasets/options
 
   // Removed Payment Status Distribution chart
+
+  // Average Ticket Price (computed as revenue/bookings per day)
+  const hourlyAvgPrice = dailyBookings.map((b, i) => {
+    const r = dailyRevenue[i] || 0;
+    return b > 0 ? Math.round(r / b) : 0;
+  });
+  // Pie chart for average ticket price per day (last 7 days)
+  const avgTicketPieData = {
+    labels: dailyLabels,
+    datasets: [
+      {
+        label: "Avg Ticket (₹)",
+        data: hourlyAvgPrice,
+        backgroundColor: [
+          "#60a5fa", "#34d399", "#fbbf24", "#f87171", "#a78bfa", "#22d3ee", "#f472b6"
+        ],
+        borderColor: "#ffffff",
+        borderWidth: 1,
+      },
+    ],
+  };
+  const avgTicketPieOptions = {
+    responsive: true,
+    plugins: {
+      legend: { position: "right" },
+      tooltip: {
+        callbacks: {
+          label: function (context) {
+            const value = context.parsed;
+            return `${context.label}: ` + new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(value || 0);
+          },
+        },
+      },
+    },
+  };
 
   const topRoutes = Array.isArray(stats.topRoutes) ? stats.topRoutes : [];
   const topRouteLabels = topRoutes.length ? topRoutes.map(r => `${r.from} → ${r.to}`) : ["No data"];
@@ -348,12 +407,13 @@ const AdminDashboard = () => {
 
         {/* Graphs Section */}
         <div className="mt-10 grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Overview Mixed Chart */}
+          {/* Overview Mixed Chart (Daily) */}
           <div className="bg-white p-6 rounded shadow">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-semibold text-gray-800">Today: Bookings & Revenue (Hourly)</h3>
+              <h3 className="text-xl font-semibold text-gray-800">Last 7 Days: Bookings & Revenue (Daily)</h3>
               <div className="flex items-center gap-3">
                 <span className="text-xs text-gray-500">Revenue today: <strong className="text-amber-600">{loading ? "…" : new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format((stats.revenueTodayCompleted ?? stats.revenueToday) || 0)}</strong></span>
+                <span className="hidden md:inline text-[11px] text-gray-400">Auto-updates every 30s</span>
                 <button onClick={fetchStats} disabled={refreshing} className={`px-3 py-1.5 rounded text-sm border ${refreshing ? 'bg-gray-100 text-gray-400 border-gray-200' : 'bg-white hover:bg-gray-50 text-gray-700 border-gray-300'}`}>{refreshing ? 'Refreshing…' : 'Refresh'}</button>
               </div>
             </div>
@@ -362,30 +422,28 @@ const AdminDashboard = () => {
             </div>
           </div>
 
-          {/* Daily Trending Lines (Last 7 Days) */}
+          {/* Average Ticket Price (Last 7 Days) - Pie */}
           <div className="bg-white p-6 rounded shadow">
-            <h3 className="text-xl font-semibold mb-4 text-gray-800">Daily Trend: Bookings & Revenue (7 days)</h3>
+            <h3 className="text-xl font-semibold mb-4 text-gray-800">Average Ticket Price (Last 7 Days)</h3>
             <div style={{ height: 340 }}>
-              <Line data={dailyLineData} options={{ ...dailyLineOptions, maintainAspectRatio: false, scales: { ...dailyLineOptions.scales, y: { ...dailyLineOptions.scales.y, grid: { color: '#e5e7eb' } }, y1: { ...dailyLineOptions.scales.y1, grid: { drawOnChartArea: false } } } }} />
+              <Pie data={avgTicketPieData} options={{ ...avgTicketPieOptions, maintainAspectRatio: false }} />
             </div>
           </div>
         </div>
 
-        <div className="mt-10 grid grid-cols-1 gap-8">
-          {/* Daily Profit (60% of Revenue) */}
+        <div className="mt-10 grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Profit (Last 7 Days, 60% of Revenue) */}
           <div className="bg-white p-6 rounded shadow">
-            <h3 className="text-xl font-semibold mb-4 text-gray-800">Daily Profit (7 days)</h3>
+            <h3 className="text-xl font-semibold mb-4 text-gray-800">Profit (Last 7 Days)</h3>
             <div style={{ height: 340 }}>
               <Line data={dailyProfitData} options={{ ...dailyProfitOptions, maintainAspectRatio: false, scales: { ...dailyProfitOptions.scales, y: { ...dailyProfitOptions.scales.y, grid: { color: '#e5e7eb' } } } }} />
             </div>
           </div>
-        </div>
 
-        <div className="mt-10 grid grid-cols-1">
           {/* Top Routes */}
           <div className="bg-white p-6 rounded shadow">
             <h3 className="text-xl font-semibold mb-4 text-gray-700">Top Routes (Last 30 Days)</h3>
-            <div style={{ height: 420 }}>
+            <div style={{ height: 340 }}>
               <Bar data={topRoutesData} options={topRoutesOptions} />
             </div>
           </div>

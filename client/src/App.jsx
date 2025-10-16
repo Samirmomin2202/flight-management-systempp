@@ -20,6 +20,7 @@ import AdminFlights from "./Components/Admin/AdminFlights";
 import AdminBookings from "./Components/Admin/AdminBookings";
 import AdminUsers from "./Components/Admin/AdminUsers";
 import AdminContacts from "./Components/Admin/AdminContacts";
+import AdminProfile from "./Components/Admin/AdminProfile";
 import FlightDetails from "./Components/FlightDetails";
 import ViewTicket from "./Components/ViewTicket";
 import Details from "./Components/Details";
@@ -111,6 +112,14 @@ const AppContent = () => {
           element={
             <ProtectedRoute>
               <AdminUsers />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/profile"
+          element={
+            <ProtectedRoute>
+              <AdminProfile />
             </ProtectedRoute>
           }
         />

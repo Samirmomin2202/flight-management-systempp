@@ -20,8 +20,16 @@ const AdminSidebar = () => {
         </div>
 
         {adminUser && (
-          <div className="p-4 border-b border-blue-700">
-            <span className="font-medium">Hello, {adminUser.email}</span>
+          <div className="p-4 border-b border-blue-700 flex items-center gap-3">
+            <img
+              src={adminUser.avatarBase64 || "https://cdn-icons-png.flaticon.com/512/149/149071.png"}
+              alt="avatar"
+              className="w-10 h-10 rounded-full object-cover border border-blue-700"
+            />
+            <div className="flex flex-col">
+              <span className="font-medium leading-tight">{adminUser.name || "Admin"}</span>
+              <span className="text-xs text-blue-200">{adminUser.email}</span>
+            </div>
           </div>
         )}
 
@@ -31,6 +39,12 @@ const AdminSidebar = () => {
             className="hover:bg-blue-700 p-2 rounded"
           >
             Dashboard
+          </Link>
+          <Link
+            to="/admin/profile"
+            className="hover:bg-blue-700 p-2 rounded"
+          >
+            Profile
           </Link>
           <Link
             to="/admin/flights"

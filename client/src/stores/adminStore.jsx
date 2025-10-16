@@ -28,5 +28,11 @@ export const useAdminStore = create((set, get) => ({
     try { localStorage.removeItem("adminUser"); } catch {}
     set({ adminUser: null });
   },
+  updateAdmin: (partial) => {
+    const current = get().adminUser || {};
+    const updated = { ...current, ...partial };
+    set({ adminUser: updated });
+    try { localStorage.setItem("adminUser", JSON.stringify(updated)); } catch {}
+  },
   isAuthenticated: () => !!get().adminUser,
 }));
