@@ -688,7 +688,7 @@ const Details = () => {
   
   // Global Randomize All removed by request
   
-  // Create booking (if needed) after passenger forms are completed
+  // Create payment intent (pay first) when no booking exists; otherwise pay for existing booking
   const handleBookFlight = async () => {
     // Auto-submit all passenger forms to register filled forms
     try {
@@ -709,87 +709,137 @@ const Details = () => {
       return notify("Please fill the passenger details to continue");
     }
 
-    // If we already have booking id in URL, just go to bookings
+    // If we already have booking id in URL, proceed with Razorpay flow for this booking later (not implemented).
     if (id) {
-      toast.success("All passenger details completed!");
-      setTimeout(() => navigateTo("/bookings"), 1200);
+      toast.info("This booking was created earlier. Please pay from the Booked page.");
       return;
     }
 
-    // Otherwise create booking first using bookingDetails (prefilled) or bookedFlight
+  // Otherwise pay-first: use Razorpay (INR)
     try {
       const base = bookingDetails || bookedFlight;
       if (!base) {
         return notify("Missing flight selection. Please go back and choose a flight.");
       }
-      const payload = {
+      // Normalize price to a positive number (strip currency symbols if present)
+      const rawPrice = base.price;
+      const numericPrice = Number(String(rawPrice).toString().replace(/[^0-9.]/g, ""));
+      if (!Number.isFinite(numericPrice) || numericPrice <= 0) {
+        return toast.error("Invalid price for payment. Please reselect the flight.");
+      }
+
+      const intentPayload = {
         flightNo: base.flightNo,
         from: base.from,
         to: base.to,
         departure: base.departure,
         arrival: base.arrival,
-        price: base.price,
-        passengers: paxCount,
-        
-        // Prefer the email the user typed in the passenger form for the first passenger,
-        // otherwise fallback to logged-in user's email if available.
+        price: numericPrice,
+        passengersCount: Number(paxCount),
         userEmail: (Array.isArray(passengersInfo) && passengersInfo[0]?.email) || currentUser?.email,
+        passengers: Array.isArray(passengersInfo)
+          ? passengersInfo.map((p, idx) => ({
+              firstName: p.firstName,
+              lastName: p.lastName,
+              email: p.email,
+              phone: p.phone,
+              seat: selectedSeats?.[idx] || p.seat || undefined,
+              gender: p.sex,
+              passengerType: "Adult",
+            }))
+          : [],
       };
 
-      const res = await fetch("http://localhost:5000/api/bookings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
-      if (!data.success) {
-        console.error("Booking create failed", data);
-        return toast.error("Booking failed: " + (data.message || "Unknown error"));
-      }
-      const newBookingId = data.booking._id;
+      // 1) Try Razorpay first for INR
+      const startRazorpay = async () => {
+        // Load Razorpay checkout script lazily
+        const loadRzp = () => new Promise((resolve) => {
+          if (window.Razorpay) return resolve(true);
+          const s = document.createElement('script');
+          s.src = 'https://checkout.razorpay.com/v1/checkout.js';
+          s.onload = () => resolve(true);
+          s.onerror = () => resolve(false);
+          document.body.appendChild(s);
+        });
 
-      // After creating booking, persist all collected passenger details
-      if (Array.isArray(passengersInfo) && passengersInfo.length > 0) {
-        try {
-          await Promise.all(
-            passengersInfo.map(async (p, idx) => {
-              const payload = {
-                bookingId: newBookingId,
-                firstName: p.firstName,
-                lastName: p.lastName,
-                email: p.email,
-                phone: p.phone,
-                seat: selectedSeats?.[idx] || p.seat || undefined,
-                
-                country: p.country,
-                state: p.state,
-                city: p.city,
-                pincode: p.pincode,
-                dob: p.dob ? new Date(p.dob) : undefined,
-                gender: p.sex,
-                passengerType: "Adult",
-              };
-              const r = await fetch("http://localhost:5000/api/passengers", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
-              });
-              const j = await r.json();
-              if (!j.success) {
-                console.warn("Passenger save failed for", p, j);
+        const res = await fetch("http://localhost:5000/api/razorpay/create-order-intent", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(intentPayload),
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.message || "Failed to start Razorpay");
+
+        const scriptOk = await loadRzp();
+        if (!scriptOk || !window.Razorpay) throw new Error("Unable to load Razorpay");
+
+        const order = data.order;
+        const keyId = data.keyId;
+        const intentId = data.intentId;
+        const contactName = Array.isArray(passengersInfo) && passengersInfo[0] ? `${passengersInfo[0].firstName || ''} ${passengersInfo[0].lastName || ''}`.trim() : "";
+        const contactEmail = (Array.isArray(passengersInfo) && passengersInfo[0]?.email) || currentUser?.email || "";
+        const contactPhone = (Array.isArray(passengersInfo) && passengersInfo[0]?.phone) || "";
+
+        return await new Promise((resolve, reject) => {
+          const rzp = new window.Razorpay({
+            key: keyId,
+            amount: order.amount,
+            currency: order.currency,
+            name: "Flight Hub",
+            description: `Flight ${base.flightNo || ''} ${base.from} → ${base.to}`,
+            order_id: order.id,
+            prefill: { name: contactName, email: contactEmail, contact: contactPhone },
+            notes: { intentId },
+            theme: { color: "#0b5cff" },
+            handler: async function (response) {
+              try {
+                const verify = await fetch("http://localhost:5000/api/razorpay/verify", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    razorpay_order_id: response.razorpay_order_id,
+                    razorpay_payment_id: response.razorpay_payment_id,
+                    razorpay_signature: response.razorpay_signature,
+                    intentId,
+                  }),
+                });
+                const vj = await verify.json();
+                if (vj.success && vj.bookingId) {
+                  toast.success("Payment successful!");
+                  navigateTo(`/booked/${vj.bookingId}`);
+                  resolve(true);
+                } else {
+                  reject(new Error(vj.message || "Verification failed"));
+                }
+              } catch (err) {
+                reject(err);
               }
-            })
-          );
-        } catch (e) {
-          console.error("Error saving passengers after booking", e);
-        }
+            },
+            modal: {
+              ondismiss: function () {
+                reject(new Error("Payment cancelled"));
+              },
+            },
+          });
+          rzp.on('payment.failed', function (resp) {
+            reject(new Error(resp?.error?.description || "Payment failed"));
+          });
+          rzp.open();
+        });
+      };
+
+      try {
+        await startRazorpay();
+        return; // success path handled inside
+      } catch (rzpErr) {
+        console.warn("Razorpay flow failed:", rzpErr);
       }
 
-  toast.success("Booking created! Opening your ticket...");
-  setTimeout(() => navigateTo(`/booked/${newBookingId}`), 600);
+      // No PayPal fallback when Razorpay fails
+      return toast.error("Payment could not be started. Please try again.");
     } catch (e) {
-      console.error("Error creating booking after details", e);
-      toast.error("Network error. Please ensure server is running.");
+      console.error("Error preparing payment intent", e);
+      toast.error("Failed to start payment. Please try again.");
     }
   };
   return (

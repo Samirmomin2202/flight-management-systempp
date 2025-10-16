@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import axios from "axios";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import { PlaneTakeoff, PlaneLanding, User, Calendar, CreditCard, MapPin, Clock } from "lucide-react";
+import { PlaneTakeoff, PlaneLanding, User, Calendar, CreditCard, MapPin, Clock, BadgeCheck, RefreshCw } from "lucide-react";
 import { useSelector } from "react-redux";
 import { user } from "./redux/userSlice";
 import { accesstoken } from "./redux/tokenSlice";
@@ -21,6 +21,7 @@ const ViewTicket = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [qrDataUrl, setQrDataUrl] = useState("");
+  const [statusInfo, setStatusInfo] = useState(null);
   
   // Get user and token from Redux
   const currentUser = useSelector(user);
@@ -50,6 +51,13 @@ const ViewTicket = () => {
           setBooking(res.data.booking);
           setPassengers(res.data.booking.passengers || []);
           setError("");
+          // Fetch lightweight payment status details
+          try {
+            const statusRes = await axios.get(`http://localhost:5000/api/bookings/${id}/status`);
+            if (statusRes.data?.success) setStatusInfo(statusRes.data);
+          } catch (e) {
+            // non-blocking
+          }
         } else {
           setError("Ticket not found");
           toast.error("Ticket not found");
@@ -116,6 +124,9 @@ const ViewTicket = () => {
     }).format(price);
   };
 
+  const effectiveStatus = (statusInfo?.status || booking?.status || '').toString().toLowerCase();
+  const isCancelled = effectiveStatus === 'cancelled' || effectiveStatus === 'canceled';
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
@@ -156,6 +167,10 @@ const ViewTicket = () => {
   // Generate a Boarding Pass PDF (one page per passenger)
   const handleDownloadBoardingPass = async () => {
     try {
+      if (isCancelled) {
+        toast.error("This ticket has been cancelled and cannot be downloaded.");
+        return;
+      }
       // Find all boarding pass cards in the hidden container
       const cards = document.querySelectorAll(".boarding-pass-card");
       if (!cards || cards.length === 0) {
@@ -201,6 +216,39 @@ const ViewTicket = () => {
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-800 mb-2">✈️ Flight Ticket</h1>
           <p className="text-gray-600">Booking ID: {booking._id}</p>
+          <div className="mt-3 flex items-center justify-center gap-3">
+            <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm border ${
+              (statusInfo?.paymentStatus || booking.paymentStatus) === 'completed'
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                : (statusInfo?.paymentStatus || booking.paymentStatus) === 'pending'
+                ? 'bg-amber-50 text-amber-700 border-amber-200'
+                : 'bg-rose-50 text-rose-700 border-rose-200'
+            }`}>
+              <BadgeCheck size={16} />
+              Payment: {statusInfo?.paymentStatus || booking.paymentStatus || 'pending'}
+              {statusInfo?.paymentAmount || booking.paymentAmount ? (
+                <span className="ml-2 opacity-80">
+                  {(statusInfo?.paymentCurrency || booking.paymentCurrency || 'INR')} {statusInfo?.paymentAmount || booking.paymentAmount}
+                </span>
+              ) : null}
+            </span>
+            <button
+              onClick={async () => {
+                try {
+                  const s = await axios.get(`http://localhost:5000/api/bookings/${booking._id}/status`);
+                  if (s.data?.success) {
+                    setStatusInfo(s.data);
+                    toast.success('Payment status refreshed');
+                  }
+                } catch (e) {
+                  toast.error('Failed to refresh status');
+                }
+              }}
+              className="inline-flex items-center gap-2 bg-white/70 hover:bg-white text-gray-700 px-3 py-1 rounded-full border shadow-sm"
+            >
+              <RefreshCw size={16} /> Refresh
+            </button>
+          </div>
         </div>
 
         {/* Main Ticket Card */}
@@ -369,12 +417,22 @@ const ViewTicket = () => {
                 Back to Bookings
               </Link>
               {/* Print Ticket removed */}
-              <button
-                onClick={handleDownloadBoardingPass}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
-              >
-                Download Boarding Pass
-              </button>
+              {!isCancelled ? (
+                <button
+                  onClick={handleDownloadBoardingPass}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+                >
+                  Download Boarding Pass
+                </button>
+              ) : (
+                <button
+                  aria-disabled
+                  title="Cancelled tickets cannot be downloaded"
+                  className="bg-gray-300 text-gray-500 px-6 py-3 rounded-lg font-medium cursor-not-allowed"
+                >
+                  Download Disabled (Cancelled)
+                </button>
+              )}
               <Link
                 to={`/booked/${booking._id}`}
                 className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"

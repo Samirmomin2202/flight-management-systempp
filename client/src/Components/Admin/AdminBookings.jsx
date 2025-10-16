@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import AdminSidebar from "./AdminSidebar";
+import { Link } from "react-router-dom";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
@@ -99,6 +100,11 @@ const AdminBookings = () => {
     }
   };
 
+  const handleRefund = async (bookingId) => {
+  if (!window.confirm("Refund this booking?")) return;
+    toast.info("Refunds are handled offline for Razorpay in this build.");
+  };
+
   if (loading) return <div className="p-6">Loading bookings…</div>;
   if (error) return <div className="p-6 text-red-600">Error: {error}</div>;
 
@@ -120,6 +126,7 @@ const AdminBookings = () => {
                 <th className="px-4 py-2">From → To</th>
                 <th className="px-4 py-2">Departure</th>
                 <th className="px-4 py-2">Price</th>
+                <th className="px-4 py-2">Payment</th>
                 <th className="px-4 py-2">Status</th>
                 <th className="px-4 py-2">Passengers</th>
                 <th className="px-4 py-2 text-center">Actions</th>
@@ -141,6 +148,12 @@ const AdminBookings = () => {
                     })}
                   </td>
                   <td className="px-4 py-2">₹{b.price}</td>
+                  <td className="px-4 py-2">
+                    <div className="text-sm">{b.paymentStatus || "pending"}</div>
+                    {b.paymentAmount ? (
+                      <div className="text-xs text-gray-600">{b.paymentCurrency || "INR"} {b.paymentAmount}</div>
+                    ) : null}
+                  </td>
                   <td className="px-4 py-2">
                     <select
                       className="border rounded px-2 py-1 text-sm"
@@ -174,12 +187,27 @@ const AdminBookings = () => {
                     >
                       {savingId === b._id ? "Saving…" : "Save"}
                     </button>
+                    <Link
+                      to={`/ticket/${b._id}`}
+                      className="inline-block bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded text-sm"
+                      title="View Ticket"
+                    >
+                      View Ticket
+                    </Link>
                     <button
                       onClick={() => handleDelete(b._id)}
                       className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm"
                     >
                       Delete
                     </button>
+                    {b.paymentStatus === "completed" && (
+                      <button
+                        onClick={() => handleRefund(b._id)}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm"
+                      >
+                        Refund
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}

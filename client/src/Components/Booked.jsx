@@ -143,6 +143,14 @@ const Booked = () => {
             <Eye className="inline-block text-indigo-600" /> You have  Successfully Booked ticket
           </h2>
           <p className="text-sm mt-1 font-mono">Booking ID: {booking._id}</p>
+          <div className="mt-3">
+            <div className="inline-block bg-white/80 px-3 py-1 rounded-full border">
+              Payment: <span className="font-semibold">{booking.paymentStatus || "pending"}</span>
+              {booking.paymentAmount ? (
+                <span className="ml-2 text-sm text-gray-600">{booking.paymentCurrency || "INR"} {booking.paymentAmount}</span>
+              ) : null}
+            </div>
+          </div>
         </div>
 
         {/* Flight Details */}
@@ -238,6 +246,14 @@ const Booked = () => {
           >
             Cancel Ticket
           </button>
+          {(!booking.paymentStatus || booking.paymentStatus === "pending") && (
+            <button
+              onClick={() => toast.info("Please complete payment during booking via Razorpay.")}
+              className="bg-yellow-500 hover:bg-yellow-600 text-white px-6 py-2 rounded-xl shadow transition font-medium"
+            >
+              Pay Now
+            </button>
+          )}
           <Link
             to={`/ticket/${booking._id}`}  // Use the new enhanced ticket view
             className="bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white px-6 py-2 rounded-xl shadow transition font-medium flex items-center gap-2"
