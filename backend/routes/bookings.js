@@ -48,6 +48,34 @@ router.post("/", async (req, res) => {
   }
 });
 
+// ✅ Get payment status for a booking (lightweight)
+// Place BEFORE the generic ":id" route to avoid routing conflicts
+router.get("/:id/status", async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id).select(
+      "status paymentStatus paymentMethod paymentAmount paymentCurrency paymentId bookingDate price userEmail"
+    );
+    if (!booking) return res.status(404).json({ success: false, message: "Booking not found" });
+
+    res.json({
+      success: true,
+      status: booking.status,
+      paymentStatus: booking.paymentStatus,
+      paymentMethod: booking.paymentMethod,
+      paymentAmount: booking.paymentAmount,
+      paymentCurrency: booking.paymentCurrency,
+      paymentId: booking.paymentId,
+      bookingDate: booking.bookingDate,
+      price: booking.price,
+      userEmail: booking.userEmail,
+      id: booking._id,
+    });
+  } catch (err) {
+    console.error("❌ Error fetching booking payment status:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // ✅ Optional: Get bookings by email (for legacy support)
 router.get("/by-email", async (req, res) => {
   try {

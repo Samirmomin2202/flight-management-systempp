@@ -5,7 +5,6 @@
   "main": "index.js",
   "type": "module",
   "proxy": "http://localhost:5000",
-
   "engines": {
     "node": ">=16 <19"
   },
@@ -30,7 +29,8 @@
     "joi": "^17.9.2",
     "jsonwebtoken": "^9.0.0",
     "mongodb-memory-server": "^10.1.4",
-  "mongoose": "^7.8.7",
+    "mongoose": "^7.8.7",
+    "razorpay": "^2.9.6",
     "redis": "^4.7.1",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^4.6.3",
@@ -40,8 +40,8 @@
     "eslint": "^8.52.0",
     "husky": "^8.0.0",
     "jest": "^29.5.0",
-    "mongodb-memory-server": "^10.1.4",
     "lint-staged": "^15.0.2",
+    "mongodb-memory-server": "^10.1.4",
     "nodemon": "^3.1.10",
     "prettier": "^3.0.3"
   },
