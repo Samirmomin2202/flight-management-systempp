@@ -108,7 +108,7 @@ const Login = () => {
                   <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
                   <span className="text-slate-700">Remember me</span>
                 </label>
-                <Link to="#" className="text-blue-700 hover:underline">Forgot password?</Link>
+                <Link to="/forgot" className="text-blue-700 hover:underline">Forgot password?</Link>
               </div>
               <button type="submit" className={`w-full mt-1 py-2.5 rounded-lg shadow-lg transition-all duration-200 ${isPending ? "bg-gray-300 text-gray-600 cursor-not-allowed" : "bg-gradient-to-r from-blue-700 to-blue-900 text-white hover:from-blue-600 hover:to-blue-800"}`} disabled={isPending}>{isPending ? "Logging in..." : "Login"}</button>
             </fieldset>

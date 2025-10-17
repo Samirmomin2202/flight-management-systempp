@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { PlaneTakeoff, PlaneLanding } from "lucide-react"; // Flight icons
+import AdminSidebar from "./AdminSidebar";
 
 const AdminFlights = () => {
   const [flights, setFlights] = useState([]);
@@ -137,129 +138,132 @@ const AdminFlights = () => {
   };
 
   return (
-    <div className="p-6 bg-gradient-to-br from-blue-50 to-blue-100 min-h-screen">
-      <h2 className="text-2xl font-bold mb-6 flex items-center gap-2 text-blue-900">
-        <PlaneTakeoff className="text-blue-700" /> Admin Flights
-      </h2>
+    <div className="min-h-screen flex">
+      <AdminSidebar />
+      <div className="flex-1 ml-64 p-6 md:p-10 bg-gradient-to-br from-blue-50 to-blue-100">
+        <h2 className="text-2xl font-bold mb-6 flex items-center gap-2 text-blue-900">
+          <PlaneTakeoff className="text-blue-700" /> Admin Flights
+        </h2>
 
-      {/* Form */}
-      <form
-        onSubmit={handleSubmit}
-        className="mb-6 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-8 gap-3 bg-white shadow-md p-4 rounded-xl"
-      >
-        {[
-          { key: "flightNo", type: "text", label: "Flight No" },
-          { key: "airline", type: "text", label: "Airline" },
-          { key: "from", type: "text", label: "From" },
-          { key: "to", type: "text", label: "To" },
-          { key: "departure", type: "datetime-local", label: "Departure" },
-          { key: "arrival", type: "datetime-local", label: "Arrival" },
-          { key: "price", type: "number", label: "Price" },
-          { key: "seatCapacity", type: "number", label: "Seats" },
-        ].map((f) => (
-          <input
-            key={f.key}
-            name={f.key}
-            type={f.type}
-            value={form[f.key]}
+        {/* Form */}
+        <form
+          onSubmit={handleSubmit}
+          className="mb-6 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-8 gap-3 bg-white shadow-md p-4 rounded-xl"
+        >
+          {[
+            { key: "flightNo", type: "text", label: "Flight No" },
+            { key: "airline", type: "text", label: "Airline" },
+            { key: "from", type: "text", label: "From" },
+            { key: "to", type: "text", label: "To" },
+            { key: "departure", type: "datetime-local", label: "Departure" },
+            { key: "arrival", type: "datetime-local", label: "Arrival" },
+            { key: "price", type: "number", label: "Price" },
+            { key: "seatCapacity", type: "number", label: "Seats" },
+          ].map((f) => (
+            <input
+              key={f.key}
+              name={f.key}
+              type={f.type}
+              value={form[f.key]}
+              onChange={handleChange}
+              placeholder={f.label}
+              className="border p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+              required
+            />
+          ))}
+          <select
+            name="cabinClass"
+            value={form.cabinClass}
             onChange={handleChange}
-            placeholder={f.label}
             className="border p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
             required
-          />
-        ))}
-        <select
-          name="cabinClass"
-          value={form.cabinClass}
-          onChange={handleChange}
-          className="border p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
-          required
-        >
-          <option>Economy</option>
-          <option>Premium Economy</option>
-          <option>Business</option>
-          <option>First</option>
-        </select>
-        <button
-          type="submit"
-          className="bg-blue-700 hover:bg-blue-800 transition text-white p-2 rounded-lg col-span-1 md:col-span-3 lg:col-span-8 font-semibold shadow-md"
-        >
-          {editId ? "Update Flight" : "Add Flight"}
-        </button>
-      </form>
+          >
+            <option>Economy</option>
+            <option>Premium Economy</option>
+            <option>Business</option>
+            <option>First</option>
+          </select>
+          <button
+            type="submit"
+            className="bg-blue-700 hover:bg-blue-800 transition text-white p-2 rounded-lg col-span-1 md:col-span-3 lg:col-span-8 font-semibold shadow-md"
+          >
+            {editId ? "Update Flight" : "Add Flight"}
+          </button>
+        </form>
 
-      {/* Flights Table */}
-      <div className="overflow-x-auto shadow-md rounded-xl bg-white">
-        <table className="w-full text-left border-collapse">
-          <thead className="bg-blue-700 text-white">
-            <tr>
-              <th className="p-3">Flight No</th>
-              <th className="p-3">Airline</th>
-              <th className="p-3">
-                <div className="flex items-center gap-1 whitespace-nowrap">
-                  <PlaneTakeoff className="w-4 h-4" /> From
-                </div>
-              </th>
-              <th className="p-3">
-                <div className="flex items-center gap-1 whitespace-nowrap">
-                  <PlaneLanding className="w-4 h-4" /> To
-                </div>
-              </th>
-              <th className="p-3">Departure</th>
-              <th className="p-3">Arrival</th>
-              <th className="p-3">Price</th>
-              <th className="p-3">Seats</th>
-              <th className="p-3">Type</th>
-              <th className="p-3">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {flights.length > 0 ? (
-              flights.map((f) => (
-                <tr
-                  key={f._id}
-                  className="border-b hover:bg-blue-50 transition"
-                >
-                  <td className="p-3 font-semibold">{f.flightNo}</td>
-                  <td className="p-3">{f.airline || "-"}</td>
-                  <td className="p-3">{f.from}</td>
-                  <td className="p-3">{f.to}</td>
-                  <td className="p-3">
-                    {new Date(f.departure).toLocaleString()}
-                  </td>
-                  <td className="p-3">
-                    {new Date(f.arrival).toLocaleString()}
-                  </td>
-                  <td className="p-3 text-green-700 font-bold">
-                    ₹{f.price.toLocaleString()}
-                  </td>
-                  <td className="p-3">{f.seatCapacity ?? 48}</td>
-                  <td className="p-3">{f.cabinClass || "Economy"}</td>
-                  <td className="p-3 flex gap-2">
-                    <button
-                      className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded-lg shadow"
-                      onClick={() => handleEdit(f)}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-lg shadow"
-                      onClick={() => handleDelete(f._id)}
-                    >
-                      Delete
-                    </button>
+        {/* Flights Table */}
+        <div className="overflow-x-auto shadow-md rounded-xl bg-white">
+          <table className="w-full text-left border-collapse">
+            <thead className="bg-blue-700 text-white">
+              <tr>
+                <th className="p-3">Flight No</th>
+                <th className="p-3">Airline</th>
+                <th className="p-3">
+                  <div className="flex items-center gap-1 whitespace-nowrap">
+                    <PlaneTakeoff className="w-4 h-4" /> From
+                  </div>
+                </th>
+                <th className="p-3">
+                  <div className="flex items-center gap-1 whitespace-nowrap">
+                    <PlaneLanding className="w-4 h-4" /> To
+                  </div>
+                </th>
+                <th className="p-3">Departure</th>
+                <th className="p-3">Arrival</th>
+                <th className="p-3">Price</th>
+                <th className="p-3">Seats</th>
+                <th className="p-3">Type</th>
+                <th className="p-3">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {flights.length > 0 ? (
+                flights.map((f) => (
+                  <tr
+                    key={f._id}
+                    className="border-b hover:bg-blue-50 transition"
+                  >
+                    <td className="p-3 font-semibold">{f.flightNo}</td>
+                    <td className="p-3">{f.airline || "-"}</td>
+                    <td className="p-3">{f.from}</td>
+                    <td className="p-3">{f.to}</td>
+                    <td className="p-3">
+                      {new Date(f.departure).toLocaleString()}
+                    </td>
+                    <td className="p-3">
+                      {new Date(f.arrival).toLocaleString()}
+                    </td>
+                    <td className="p-3 text-green-700 font-bold">
+                      ₹{f.price.toLocaleString()}
+                    </td>
+                    <td className="p-3">{f.seatCapacity ?? 48}</td>
+                    <td className="p-3">{f.cabinClass || "Economy"}</td>
+                    <td className="p-3 flex gap-2">
+                      <button
+                        className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded-lg shadow"
+                        onClick={() => handleEdit(f)}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-lg shadow"
+                        onClick={() => handleDelete(f._id)}
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="10" className="text-center p-4">
+                    No flights found.
                   </td>
                 </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan="10" className="text-center p-4">
-                  No flights found.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

@@ -6,7 +6,7 @@
   "type": "module",
   "proxy": "http://localhost:5000",
   "engines": {
-    "node": ">=16 <19"
+    "node": ">=16 <23"
   },
   "scripts": {
     "start": "node server.js",
@@ -30,6 +30,8 @@
     "jsonwebtoken": "^9.0.0",
     "mongodb-memory-server": "^10.1.4",
     "mongoose": "^7.8.7",
+  "nodemailer": "^6.9.14",
+  "pdfkit": "^0.15.0",
     "razorpay": "^2.9.6",
     "redis": "^4.7.1",
     "swagger-jsdoc": "^6.2.8",

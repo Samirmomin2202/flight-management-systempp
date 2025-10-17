@@ -24,6 +24,7 @@ import AdminProfile from "./Components/Admin/AdminProfile";
 import FlightDetails from "./Components/FlightDetails";
 import ViewTicket from "./Components/ViewTicket";
 import Details from "./Components/Details";
+import ForgotPassword from "./Components/Auth/ForgotPassword";
 
 import { useAdminStore } from "./stores/adminStore";
 import { accesstoken } from "./Components/redux/tokenSlice";
@@ -76,6 +77,7 @@ const AppContent = () => {
         <Route path="/contact" element={<Contact />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
+  <Route path="/forgot" element={<ForgotPassword />} />
         <Route path="/profile" element={<Profile />} />
 
         {/* Admin Protected Routes */}

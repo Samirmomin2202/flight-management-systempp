@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import AdminSidebar from "./AdminSidebar";
-import { Link } from "react-router-dom";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
@@ -187,13 +186,7 @@ const AdminBookings = () => {
                     >
                       {savingId === b._id ? "Saving…" : "Save"}
                     </button>
-                    <Link
-                      to={`/ticket/${b._id}`}
-                      className="inline-block bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded text-sm"
-                      title="View Ticket"
-                    >
-                      View Ticket
-                    </Link>
+                    {/* View Ticket button removed per request */}
                     <button
                       onClick={() => handleDelete(b._id)}
                       className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm"

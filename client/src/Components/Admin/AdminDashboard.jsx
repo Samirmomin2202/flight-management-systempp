@@ -311,34 +311,43 @@ const AdminDashboard = () => {
     const r = dailyRevenue[i] || 0;
     return b > 0 ? Math.round(r / b) : 0;
   });
-  // Pie chart for average ticket price per day (last 7 days)
-  const avgTicketPieData = {
+  // Bar chart for average ticket price per day (last 7 days)
+  const avgTicketBarData = {
     labels: dailyLabels,
     datasets: [
       {
         label: "Avg Ticket (₹)",
         data: hourlyAvgPrice,
-        backgroundColor: [
-          "#60a5fa", "#34d399", "#fbbf24", "#f87171", "#a78bfa", "#22d3ee", "#f472b6"
-        ],
-        borderColor: "#ffffff",
-        borderWidth: 1,
+        backgroundColor: "rgba(59, 130, 246, 0.6)", // blue-500
+        borderRadius: 6,
       },
     ],
   };
-  const avgTicketPieOptions = {
+  const avgTicketBarOptions = {
     responsive: true,
+    scales: {
+      y: {
+        beginAtZero: true,
+        title: { display: true, text: "Avg Price (₹)" },
+        ticks: {
+          callback: (v) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(v || 0),
+        },
+        grid: { color: "#e5e7eb" },
+      },
+      x: { grid: { display: false } },
+    },
     plugins: {
-      legend: { position: "right" },
+      legend: { display: false },
       tooltip: {
         callbacks: {
           label: function (context) {
-            const value = context.parsed;
-            return `${context.label}: ` + new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(value || 0);
+            const value = context.parsed.y;
+            return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(value || 0);
           },
         },
       },
     },
+    maintainAspectRatio: false,
   };
 
   const topRoutes = Array.isArray(stats.topRoutes) ? stats.topRoutes : [];
@@ -346,26 +355,33 @@ const AdminDashboard = () => {
   const topRouteCounts = topRoutes.length ? topRoutes.map(r => r.count || 0) : [0];
   const routePalette = ["#6366F1", "#22C55E", "#F59E0B", "#EF4444", "#06B6D4", "#84CC16"]; // indigo, green, amber, red, cyan, lime
   const topRouteColors = topRouteLabels.map((_, i) => `${routePalette[i % routePalette.length]}B3`); // semi-transparent
-  const topRoutesData = {
+  // Pie chart for Top Routes (Last 30 days)
+  const topRoutesPieData = {
     labels: topRouteLabels,
     datasets: [
       {
-        type: "bar",
-        label: "Top Routes (Last 30d)",
+        label: "Bookings",
         data: topRouteCounts,
-        backgroundColor: topRouteColors,
-        borderRadius: 6,
+        backgroundColor: ["#6366F1", "#22C55E", "#F59E0B", "#EF4444", "#06B6D4", "#84CC16", "#A78BFA", "#F472B6"],
+        borderColor: "#ffffff",
+        borderWidth: 1,
       },
     ],
   };
-  const topRoutesOptions = {
+  const topRoutesPieOptions = {
     responsive: true,
-    indexAxis: 'y',
-    scales: {
-      x: { beginAtZero: true, ticks: { precision: 0, color: '#4B5563' }, grid: { color: '#e5e7eb' } },
-      y: { ticks: { autoSkip: false, color: '#4B5563' }, grid: { display: false } },
+    plugins: {
+      legend: { position: "right" },
+      tooltip: {
+        callbacks: {
+          label: function (context) {
+            const label = context.label || "Route";
+            const value = context.parsed || 0;
+            return `${label}: ${value}`;
+          },
+        },
+      },
     },
-    plugins: { legend: { display: false }, valueLabel: { display: true, color: '#111827', font: '12px sans-serif' } },
     maintainAspectRatio: false,
   };
 
@@ -422,11 +438,11 @@ const AdminDashboard = () => {
             </div>
           </div>
 
-          {/* Average Ticket Price (Last 7 Days) - Pie */}
+          {/* Average Ticket Price (Last 7 Days) - Bar */}
           <div className="bg-white p-6 rounded shadow">
             <h3 className="text-xl font-semibold mb-4 text-gray-800">Average Ticket Price (Last 7 Days)</h3>
             <div style={{ height: 340 }}>
-              <Pie data={avgTicketPieData} options={{ ...avgTicketPieOptions, maintainAspectRatio: false }} />
+              <Bar data={avgTicketBarData} options={avgTicketBarOptions} />
             </div>
           </div>
         </div>
@@ -440,11 +456,11 @@ const AdminDashboard = () => {
             </div>
           </div>
 
-          {/* Top Routes */}
+          {/* Top Routes - Pie */}
           <div className="bg-white p-6 rounded shadow">
             <h3 className="text-xl font-semibold mb-4 text-gray-700">Top Routes (Last 30 Days)</h3>
             <div style={{ height: 340 }}>
-              <Bar data={topRoutesData} options={topRoutesOptions} />
+              <Pie data={topRoutesPieData} options={topRoutesPieOptions} />
             </div>
           </div>
         </div>

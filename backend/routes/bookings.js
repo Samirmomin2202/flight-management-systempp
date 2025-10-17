@@ -3,6 +3,8 @@ import express from "express";
 import jwt from "jsonwebtoken";
 import Booking from "../models/Booking.js";
 import Passenger from "../models/Passenger.js";
+import { sendEmail } from "../src/utils/mailer.js";
+import { generateTicketPdf } from "../src/utils/ticketPdf.js";
 
 const router = express.Router();
 
@@ -184,6 +186,38 @@ router.put("/:id", async (req, res) => {
       ...updated.toObject(),
       passengers: passengersList,
     };
+
+    // Email notifications based on status changes
+    try {
+      const recipient = bookingWithPassengers.userEmail;
+      if (recipient) {
+        if (update.status === "confirmed") {
+          // Generate PDF and send
+          const pdfBuffer = await generateTicketPdf(bookingWithPassengers);
+          await sendEmail({
+            to: recipient,
+            subject: `Your ticket is confirmed - ${bookingWithPassengers.flightNo || "Flight"}`,
+            text: `Dear customer,\n\nYour booking (${bookingWithPassengers._id}) has been confirmed. Please find your ticket attached.\n\nRoute: ${bookingWithPassengers.from} -> ${bookingWithPassengers.to}\nDeparture: ${bookingWithPassengers.departure}\n\nThank you for choosing us.`,
+            attachments: [
+              {
+                filename: `ticket-${bookingWithPassengers._id}.pdf`,
+                content: pdfBuffer,
+              },
+            ],
+          });
+        } else if (update.status === "cancelled") {
+          // Send cancellation message only
+          await sendEmail({
+            to: recipient,
+            subject: `Your booking was cancelled - ${bookingWithPassengers.flightNo || "Flight"}`,
+            text: `Dear customer,\n\nYour booking (${bookingWithPassengers._id}) has been cancelled. No ticket will be issued.\n\nIf this was unexpected, please contact support.`,
+          });
+        }
+      }
+    } catch (mailErr) {
+      console.error("Email send error:", mailErr);
+      // Don't fail the update if email fails
+    }
 
     res.json({ success: true, booking: bookingWithPassengers });
   } catch (err) {
