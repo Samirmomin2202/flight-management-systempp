@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import axios from "axios";
+import http from "../../api/http";
+import logo from "../../Assets/flight-logo.png";
 
 const Signup = () => {
   const navigate = useNavigate();
@@ -9,12 +10,15 @@ const Signup = () => {
     username: "",
     surname: "",
     email: "",
-    password: ""
+    password: "",
+    confirmPassword: "",
   });
 
   const [status, setStatus] = useState({ success: "", error: "" });
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const emailValid = useMemo(() => /.+@.+\..+/.test(user.email), [user.email]);
+  const passMatch = useMemo(() => user.password && user.password === user.confirmPassword, [user.password, user.confirmPassword]);
 
   const handleOnChange = (e) => {
     const { name, value } = e.target;
@@ -27,11 +31,8 @@ const Signup = () => {
     setLoading(true);
 
     try {
-      const res = await axios.post(
-        "http://localhost:5000/api/user/signup",
-        user,
-        { headers: { "Content-Type": "application/json" } }
-      );
+      const payload = { username: user.username, surname: user.surname, email: user.email, password: user.password };
+      const res = await http.post("/user/signup", payload);
 
       console.log("Signup response:", res.data);
 
@@ -59,7 +60,7 @@ const Signup = () => {
   };
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center p-4">
+  <div className="relative min-h-screen flex items-center justify-center p-4">
       {/* Page background: solid blue + your blue-line image from public/auth-bg.jpg */}
       <div className="absolute inset-0 -z-10 bg-[#0EA5E9]" />
       <div
@@ -79,14 +80,33 @@ const Signup = () => {
         </svg>
       </div>
   <div className="relative z-10 w-full max-w-5xl bg-white rounded-2xl shadow-2xl overflow-hidden grid md:grid-cols-2">
-        {/* Left: Form */}
+        {/* Left: Illustration & testimonial */}
+        <div className="relative hidden md:block">
+          <div className="absolute inset-0 m-6 rounded-2xl overflow-hidden bg-blue-900">
+            <div className="absolute inset-0 bg-cover bg-center opacity-90" style={{ backgroundImage: "url('/auth-hero.jpg')" }} />
+            <div className="absolute inset-0 bg-blue-900/60" />
+            <div className="relative h-full flex flex-col justify-end p-8 text-white">
+              <p className="text-lg md:text-xl font-semibold max-w-md">Join thousands of travelers booking smarter with FlightHub.</p>
+              <div className="mt-5 flex items-center gap-3">
+                <img src={logo} alt="avatar" className="h-10 w-10 rounded-full bg-white/90 p-1" />
+                <div>
+                  <div className="text-sm font-semibold">A happy traveler</div>
+                  <div className="text-xs text-white/80">5-star experience</div>
+                </div>
+              </div>
+              <div className="mt-3 text-amber-300">★★★★★</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right: Form */}
         <div className="p-8 md:p-10">
           <div className="mb-6">
-            <div className="flex items-center gap-2">
-              <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-blue-600 text-white font-bold">✈</span>
-              <h1 className="text-xl font-extrabold text-slate-900">Flight Hub</h1>
+            <div className="flex flex-col items-center gap-2">
+              <img src={logo} alt="FlightHub" className="h-10 w-10" />
+              <h1 className="text-xl font-extrabold text-slate-900">Create Account</h1>
+              <p className="text-xs text-slate-500">Please fill in your details</p>
             </div>
-            <p className="mt-2 text-slate-600">Create your account to start your journey</p>
           </div>
 
           <form onSubmit={handleSignUp} className="space-y-4">
@@ -112,6 +132,13 @@ const Signup = () => {
                 <input id="password" name="password" type={showPassword ? "text" : "password"} placeholder="Create a strong password" onChange={handleOnChange} required className="mt-1 border w-full p-2.5 pr-16 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
                 <button type="button" onClick={() => setShowPassword((s) => !s)} className="absolute top-1/2 -translate-y-1/2 right-2 text-xs text-blue-700 font-semibold px-2 py-1 rounded hover:bg-blue-50">{showPassword ? "Hide" : "Show"}</button>
               </div>
+              <p className="text-xs text-slate-500 mt-1">Use 8+ characters including a number.</p>
+            </div>
+
+            <div className="flex flex-col">
+              <label className="text-sm font-medium text-slate-700" htmlFor="confirmPassword">Confirm Password</label>
+              <input id="confirmPassword" name="confirmPassword" type={showPassword ? "text" : "password"} placeholder="Re-enter password" onChange={handleOnChange} required className={`mt-1 border w-full p-2.5 rounded-lg shadow-sm focus:outline-none focus:ring-2 ${user.confirmPassword && !passMatch ? 'border-rose-300 focus:ring-rose-400' : 'focus:ring-blue-500 focus:border-blue-500'}`} />
+              {user.confirmPassword && !passMatch && <p className="text-xs text-rose-600 mt-1">Passwords do not match.</p>}
             </div>
 
             <div className="text-xs">
@@ -120,7 +147,7 @@ const Signup = () => {
               </label>
             </div>
 
-            <button type="submit" disabled={loading} className={`w-full py-2.5 rounded-lg text-white shadow-lg transition duration-200 ${loading ? "bg-gray-400" : "bg-gradient-to-r from-blue-700 to-blue-900 hover:from-blue-600 hover:to-blue-800"}`}>{loading ? "Signing up..." : "Create account"}</button>
+            <button type="submit" disabled={loading || !emailValid || !passMatch} className={`w-full py-2.5 rounded-lg text-white shadow-lg transition duration-200 ${loading || !emailValid || !passMatch ? "bg-gray-300 cursor-not-allowed" : "bg-gradient-to-r from-blue-700 to-blue-900 hover:from-blue-600 hover:to-blue-800"}`}>{loading ? "Signing up..." : "Create account"}</button>
 
             {status.error && (<p className="text-red-600 text-sm mt-2">{status.error}</p>)}
             {status.success && (<p className="text-green-600 text-sm mt-2">{status.success}</p>)}
@@ -132,27 +159,7 @@ const Signup = () => {
           </div>
         </div>
 
-        {/* Right: Illustration area with inner framed card */}
-        <div className="relative min-h-[360px]">
-          {/* Inner framed card */}
-          <div className="absolute inset-0 m-4 md:m-5 rounded-xl border-2 border-white shadow-[0_10px_30px_rgba(0,0,0,0.15)] overflow-hidden">
-            <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: "url('/auth-hero.jpg')" }} />
-            <div className="absolute inset-0 bg-cyan-700/25" />
-            {/* Decorative arcs */}
-            <div className="absolute -right-10 -top-10 h-44 w-44 rounded-full border-4 border-white/60" />
-            <div className="absolute right-6 top-6 h-24 w-24 rounded-full border-4 border-white/40" />
-
-            {/* Text and dots */}
-            <div className="relative h-full flex flex-col justify-center items-start p-6 md:p-7 text-white drop-shadow">
-              <h2 className="text-xl md:text-2xl font-extrabold leading-snug max-w-xs">Start your journey by one click, explore beautiful world!</h2>
-              <div className="mt-3 flex items-center gap-2">
-                <span className="h-1.5 w-5 rounded-full bg-white" />
-                <span className="h-1.5 w-1.5 rounded-full bg-white/70" />
-                <span className="h-1.5 w-1.5 rounded-full bg-white/50" />
-              </div>
-            </div>
-          </div>
-        </div>
+        {/* Right side illustration handled in the left column on desktop */}
       </div>
       {/* Bottom skyline overlay */}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-0">

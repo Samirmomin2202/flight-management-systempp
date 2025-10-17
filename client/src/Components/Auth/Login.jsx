@@ -1,4 +1,4 @@
-import axios from "axios";
+import http from "../../api/http";
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Cookies from "js-cookie";
@@ -8,6 +8,7 @@ import { getUser } from "../redux/userSlice";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import useFlightStore from "../zustand store/ZStore";
+import logo from "../../Assets/flight-logo.png";
 
 const Login = () => {
   const { getIsLoggedIn } = useFlightStore();
@@ -23,7 +24,7 @@ const Login = () => {
     setLoginData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const notify = (text, type = "info") => toast[type](text);
+  const notify = (text, type = "info") => toast[type](text, { theme: "colored" });
 
   const handleLogin = async (event) => {
     event.preventDefault();
@@ -31,7 +32,7 @@ const Login = () => {
     setIsPending(true);
 
     try {
-  const loginRes = await axios.post("http://localhost:5000/api/user/login", loginData);
+  const loginRes = await http.post("/user/login", loginData);
   // Using simplified backend that returns { success, data: { id, email, username } }
   const token = loginRes?.data?.token; // optional if you later add JWT issuing
 
@@ -59,6 +60,9 @@ const Login = () => {
     }
   };
 
+  const inputIconCls = "pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400";
+  const inputBaseCls = "mt-1 w-full text-sm border rounded-lg py-2.5 pl-10 pr-16 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500";
+
   return (
     <div className="relative min-h-screen flex items-center justify-center p-4">
       {/* Page background: solid blue + your blue-line image from public/auth-bg.jpg */}
@@ -80,26 +84,49 @@ const Login = () => {
         </svg>
       </div>
   <div className="relative z-10 w-full max-w-5xl bg-white rounded-2xl shadow-2xl overflow-hidden grid md:grid-cols-2">
-        {/* Left: Form */}
+        {/* Left: Illustration & testimonial */}
+        <div className="relative hidden md:block">
+          <div className="absolute inset-0 m-6 rounded-2xl overflow-hidden bg-blue-900">
+            <div className="absolute inset-0 bg-cover bg-center opacity-90" style={{ backgroundImage: "url('/auth-hero.jpg')" }} />
+            <div className="absolute inset-0 bg-blue-900/60" />
+            <div className="relative h-full flex flex-col justify-end p-8 text-white">
+              <p className="text-lg md:text-xl font-semibold max-w-md">We have been using FlightHub to book flights and can’t imagine working without it.</p>
+              <div className="mt-5 flex items-center gap-3">
+                <img src={logo} alt="avatar" className="h-10 w-10 rounded-full bg-white/90 p-1" />
+                <div>
+                  <div className="text-sm font-semibold">Man Flynn</div>
+                  <div className="text-xs text-white/80">Founder, Whitebus Agency</div>
+                </div>
+              </div>
+              <div className="mt-3 text-amber-300">★★★★★</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right: Form */}
         <div className="p-8 md:p-10">
           <div className="mb-6">
-            <div className="flex items-center gap-2">
-              <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-blue-600 text-white font-bold">✈</span>
-              <h1 className="text-xl font-extrabold text-slate-900">Flight Hub</h1>
+            <div className="flex flex-col items-center gap-2">
+              <img src={logo} alt="FlightHub" className="h-10 w-10" />
+              <h1 className="text-xl font-extrabold text-slate-900">Welcome Back!</h1>
+              <p className="text-xs text-slate-500">Please enter your credentials</p>
             </div>
-            <p className="mt-2 text-slate-600">Login to explore the best flight deals</p>
           </div>
 
           <form className="w-full space-y-4" onSubmit={handleLogin}>
             <fieldset disabled={isPending} className="space-y-4">
               <div className="flex flex-col">
                 <label htmlFor="email" className="text-sm font-medium text-slate-700">Email</label>
-                <input id="email" className="mt-1 text-sm border rounded-lg py-2.5 px-3 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" type="email" name="email" value={loginData.email} onChange={handleOnChange} placeholder="you@example.com" required />
+                <div className="relative">
+                  <span className={inputIconCls}>📧</span>
+                  <input id="email" className={inputBaseCls} type="email" name="email" value={loginData.email} onChange={handleOnChange} placeholder="you@example.com" required />
+                </div>
               </div>
               <div className="flex flex-col">
                 <label htmlFor="password" className="text-sm font-medium text-slate-700">Password</label>
                 <div className="relative">
-                  <input id="password" className="mt-1 w-full text-sm border rounded-lg py-2.5 px-3 pr-16 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" type={showPassword ? "text" : "password"} name="password" value={loginData.password} onChange={handleOnChange} placeholder="••••••••" required />
+                  <span className={inputIconCls}>🔒</span>
+                  <input id="password" className={inputBaseCls} type={showPassword ? "text" : "password"} name="password" value={loginData.password} onChange={handleOnChange} placeholder="••••••••" required />
                   <button type="button" onClick={() => setShowPassword((s) => !s)} className="absolute top-1/2 -translate-y-1/2 right-2 text-xs text-blue-700 font-semibold px-2 py-1 rounded hover:bg-blue-50">{showPassword ? "Hide" : "Show"}</button>
                 </div>
               </div>
@@ -110,7 +137,7 @@ const Login = () => {
                 </label>
                 <Link to="/forgot" className="text-blue-700 hover:underline">Forgot password?</Link>
               </div>
-              <button type="submit" className={`w-full mt-1 py-2.5 rounded-lg shadow-lg transition-all duration-200 ${isPending ? "bg-gray-300 text-gray-600 cursor-not-allowed" : "bg-gradient-to-r from-blue-700 to-blue-900 text-white hover:from-blue-600 hover:to-blue-800"}`} disabled={isPending}>{isPending ? "Logging in..." : "Login"}</button>
+              <button type="submit" className={`w-full mt-1 py-2.5 rounded-lg shadow-lg transition-all duration-200 ${isPending ? "bg-gray-300 text-gray-600 cursor-not-allowed" : "bg-gradient-to-r from-blue-700 to-blue-900 text-white hover:from-blue-600 hover:to-blue-800"}`} disabled={isPending}>{isPending ? "Logging in..." : "Login Now"}</button>
             </fieldset>
           </form>
 
@@ -121,27 +148,7 @@ const Login = () => {
           <ToastContainer position="top-right" autoClose={3000} />
         </div>
 
-        {/* Right: Illustration area with inner framed card */}
-        <div className="relative min-h-[360px]">
-          {/* Inner framed card */}
-          <div className="absolute inset-0 m-4 md:m-5 rounded-xl border-2 border-white shadow-[0_10px_30px_rgba(0,0,0,0.15)] overflow-hidden">
-            <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: "url('/auth-hero.jpg')" }} />
-            <div className="absolute inset-0 bg-cyan-700/25" />
-            {/* Decorative arcs */}
-            <div className="absolute -right-10 -top-10 h-44 w-44 rounded-full border-4 border-white/60" />
-            <div className="absolute right-6 top-6 h-24 w-24 rounded-full border-4 border-white/40" />
-
-            {/* Text and dots */}
-            <div className="relative h-full flex flex-col justify-center items-start p-6 md:p-7 text-white drop-shadow">
-              <h2 className="text-xl md:text-2xl font-extrabold leading-snug max-w-xs">Start your journey by one click, explore beautiful world!</h2>
-              <div className="mt-3 flex items-center gap-2">
-                <span className="h-1.5 w-5 rounded-full bg-white" />
-                <span className="h-1.5 w-1.5 rounded-full bg-white/70" />
-                <span className="h-1.5 w-1.5 rounded-full bg-white/50" />
-              </div>
-            </div>
-          </div>
-        </div>
+        {/* Right side (left on desktop) already used by illustration. */}
       </div>
       {/* Bottom skyline overlay */}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-0">
