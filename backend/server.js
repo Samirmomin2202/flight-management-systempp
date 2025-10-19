@@ -10,6 +10,7 @@ import userRoute from "./src/apis/users/user.route.js";
 import contactRoutes from "./routes/contact.js";
 // import paymentsRoutes from "./routes/payments.js";
 import razorpayRoutes from "./routes/razorpay.js";
+import slidesRoutes from "./routes/slides.js";
 import path from "path";
 import { fileURLToPath } from "url";
 import connectDb from "./src/config/db.config.js";
@@ -43,7 +44,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/contact", contactRoutes);
 // app.use("/api/payments", paymentsRoutes);
 app.use("/api/razorpay", razorpayRoutes);
-// app.use("/api/slides", slidesRoutes); // removed
+app.use("/api/slides", slidesRoutes);
 // User routes (signup/login)
 app.use("/api/user", userRoute);
 app.use("/user", userRoute);

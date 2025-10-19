@@ -4,6 +4,7 @@ import crypto from "crypto";
 import PaymentIntent from "../models/PaymentIntent.js";
 import Booking from "../models/Booking.js";
 import Passenger from "../models/Passenger.js";
+import auth from "../src/apis/middleware/auth.middleware.js";
 
 const router = express.Router();
 
@@ -17,7 +18,8 @@ function getRazorpayInstance() {
 }
 
 // Create order from intent (pay first flow)
-router.post("/create-order-intent", async (req, res) => {
+// Require login to initiate a payment/booking intent
+router.post("/create-order-intent", auth, async (req, res) => {
   try {
     const { flightNo, from, to, departure, arrival, price, passengersCount, userEmail, passengers } = req.body;
     if (!from || !to || passengersCount == null) {
@@ -55,7 +57,8 @@ router.post("/create-order-intent", async (req, res) => {
 });
 
 // Verify payment and create booking
-router.post("/verify", async (req, res) => {
+// Require login to verify and create a booking
+router.post("/verify", auth, async (req, res) => {
   try {
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature, intentId } = req.body;
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !intentId) {

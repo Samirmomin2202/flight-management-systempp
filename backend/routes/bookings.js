@@ -5,6 +5,8 @@ import Booking from "../models/Booking.js";
 import Passenger from "../models/Passenger.js";
 import { sendEmail } from "../src/utils/mailer.js";
 import { generateTicketPdf } from "../src/utils/ticketPdf.js";
+// Removed rich HTML email for boarding pass to keep email simple with a single PDF attachment
+import auth from "../src/apis/middleware/auth.middleware.js";
 
 const router = express.Router();
 
@@ -25,8 +27,8 @@ const verifyToken = (req, res, next) => {
   }
 };
 
-// ✅ Create booking
-router.post("/", async (req, res) => {
+// ✅ Create booking (login required)
+router.post("/", auth, async (req, res) => {
   try {
     console.log("📥 Received booking request:", req.body);
     
@@ -78,8 +80,8 @@ router.get("/:id/status", async (req, res) => {
   }
 });
 
-// ✅ Optional: Get bookings by email (for legacy support)
-router.get("/by-email", async (req, res) => {
+// ✅ Optional: Get bookings by email (login required)
+router.get("/by-email", auth, async (req, res) => {
   try {
     const { email } = req.query;
     if (!email) {
@@ -87,8 +89,7 @@ router.get("/by-email", async (req, res) => {
     }
     
     console.log(`Fetching bookings for email: ${email}`);
-    const bookings = await Booking.find({ userEmail: email }).sort({ createdAt: -1 });
-    
+    const bookings = await Booking.find({ userEmail: email }).sort({ createdAt: -1 }).lean();
     res.json({ success: true, bookings, count: bookings.length });
   } catch (err) {
     console.error("Error fetching bookings by email:", err);
@@ -96,15 +97,15 @@ router.get("/by-email", async (req, res) => {
   }
 });
 
-// ✅ Get all bookings for user (requires userEmail)
-router.get("/", async (req, res) => {
+// ✅ Get all bookings for user (login required, uses userEmail)
+router.get("/", auth, async (req, res) => {
   try {
     const userEmail = req.query.userEmail;
     if (!userEmail) {
       return res.status(400).json({ success: false, message: "userEmail query parameter is required" });
     }
     console.log(`Fetching bookings for user: ${userEmail}`);
-    const bookings = await Booking.find({ userEmail }).sort({ createdAt: -1 });
+    const bookings = await Booking.find({ userEmail }).sort({ createdAt: -1 }).lean();
     console.log(`Found ${bookings.length} bookings for user ${userEmail}`);
     res.json({ success: true, bookings, count: bookings.length });
   } catch (err) {
@@ -141,7 +142,7 @@ router.get("/:id", async (req, res) => {
 });
 
 // ✅ Delete booking + passengers
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", auth, async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id);
     if (!booking) return res.status(404).json({ success: false, message: "Booking not found" });
@@ -156,7 +157,7 @@ router.delete("/:id", async (req, res) => {
 });
 
 // ✅ Update booking (admin/editor)
-router.put("/:id", async (req, res) => {
+router.put("/:id", auth, async (req, res) => {
   try {
     const { flightNo, from, to, departure, arrival, status, passengers, userEmail } = req.body;
 
@@ -192,16 +193,17 @@ router.put("/:id", async (req, res) => {
       const recipient = bookingWithPassengers.userEmail;
       if (recipient) {
         if (update.status === "confirmed") {
-          // Generate PDF and send
+          // Generate a single PDF attachment and send a simple email body
           const pdfBuffer = await generateTicketPdf(bookingWithPassengers);
           await sendEmail({
             to: recipient,
             subject: `Your ticket is confirmed - ${bookingWithPassengers.flightNo || "Flight"}`,
-            text: `Dear customer,\n\nYour booking (${bookingWithPassengers._id}) has been confirmed. Please find your ticket attached.\n\nRoute: ${bookingWithPassengers.from} -> ${bookingWithPassengers.to}\nDeparture: ${bookingWithPassengers.departure}\n\nThank you for choosing us.`,
+            text: `Dear customer,\n\nYour booking (${bookingWithPassengers._id}) has been confirmed. Your boarding pass is attached as a PDF.\n\nRoute: ${bookingWithPassengers.from} → ${bookingWithPassengers.to}\nDeparture: ${new Date(bookingWithPassengers.departure).toLocaleString("en-IN")}\n\nThank you for choosing us.`,
             attachments: [
               {
-                filename: `ticket-${bookingWithPassengers._id}.pdf`,
+                filename: `BoardingPass-${bookingWithPassengers.flightNo || "Flight"}-${String(bookingWithPassengers._id).slice(-6)}.pdf`,
                 content: pdfBuffer,
+                contentType: "application/pdf",
               },
             ],
           });
