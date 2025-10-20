@@ -11,7 +11,12 @@ const bookingSchema = new mongoose.Schema({
   passengers: Number,
   userEmail: String, // Add user email for access control
   bookingDate: { type: Date, default: Date.now },
-  status: { type: String, default: "confirmed" }, // confirmed, cancelled
+  // Booking status lifecycle: pending (default) -> confirmed | cancelled
+  status: {
+    type: String,
+    enum: ["pending", "confirmed", "cancelled"],
+    default: "pending",
+  },
   // Payment info
   paymentStatus: { type: String, enum: ["pending", "completed", "failed", "refunded"], default: "pending" },
   paymentId: { type: String },

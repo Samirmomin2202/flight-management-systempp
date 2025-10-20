@@ -14,7 +14,7 @@ function Navbar() {
   const navigate = useNavigate();
 
   return (
-    <nav className='w-full'>
+  <nav className='w-full'>
       <div className='relative flex'>
         {/* Toggle mobile menu button */}
         <div className='flex items-center sm:hidden'>
@@ -34,7 +34,7 @@ function Navbar() {
         </div>
 
         {/* Desktop Navbar */}
-        <div className='hidden sm:flex flex-rows w-full bg-hero-img box-content py-4 px-10'>
+  <div className='hidden sm:flex flex-rows w-full bg-hero-img box-content py-4 px-10'>
           <div className='flex flex-row w-full justify-between items-center'>
             {/* Logo */}
             <NavLink to='/' className='flex flex-row text-white gap-2 font-semibold text-xl'>

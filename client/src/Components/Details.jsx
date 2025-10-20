@@ -13,7 +13,7 @@ import useFlightStore from "./zustand store/ZStore";
 import { v4 as uuidv4 } from "uuid";
 import { toast, ToastContainer } from "react-toastify";
 
-const PassengerData = ({ filledFormList, setFilledFormList, bookingId, selectedSeats, setSelectedSeats, index, seatRows, isExitRow }) => {
+const PassengerData = ({ filledFormList, setFilledFormList, bookingId, selectedSeats, setSelectedSeats, index, seatRows, isExitRow, occupiedSeats }) => {
   const { passengers, bookedFlight, getAllBookings, allBookings, getPassengersInfo } =
     useFlightStore();
   const currentUser = useSelector(user); // Get current user from Redux
@@ -29,8 +29,8 @@ const PassengerData = ({ filledFormList, setFilledFormList, bookingId, selectedS
   const [genderSelected, setGenderSelected] = useState("null");
   const [passengerInfo, setPassengerInfo] = useState({
     sex: "",
-    firstName: "",
-    lastName: "",
+    firstName: currentUser?.username || "",
+    lastName: currentUser?.surname || "",
     phone: "",
     email: currentUser?.email || "", // Auto-populate email from signed-in user
     seat: "",
@@ -40,12 +40,31 @@ const PassengerData = ({ filledFormList, setFilledFormList, bookingId, selectedS
     pincode: "",
     dob: "",
   });
+  const [saveDefaultContact, setSaveDefaultContact] = useState(false);
 
   // Keep local seat in sync if parent updates selectedSeats (e.g., Randomize All)
   useEffect(() => {
     const seatFromParent = selectedSeats?.[index] || "";
     setPassengerInfo((prev) => (prev.seat === seatFromParent ? prev : { ...prev, seat: seatFromParent }));
   }, [selectedSeats, index]);
+  // Try to prefill contact from local default contact once (non-destructive)
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('defaultContact') || 'null');
+      if (saved) {
+        setPassengerInfo(prev => ({
+          ...prev,
+          email: prev.email || saved.email || "",
+          phone: prev.phone || saved.phone || "",
+          country: prev.country || saved.country || "",
+          state: prev.state || saved.state || "",
+          city: prev.city || saved.city || "",
+          pincode: prev.pincode || saved.pincode || "",
+        }));
+      }
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   
   // Initialize bookFlight state with safe defaults
   const [bookFlight, setBookFlight] = useState({
@@ -110,7 +129,7 @@ const PassengerData = ({ filledFormList, setFilledFormList, bookingId, selectedS
 
   // Assign a random available seat for this passenger (UI-only)
   const assignRandomSeat = () => {
-    const rows = seatRows; // dynamic rows from parent
+  const rows = seatRows; // dynamic rows from parent
     const cols = ["A", "B", "C", "D"]; // 2–2 layout
 
     // Build all seat codes with priority buckets
@@ -136,7 +155,10 @@ const PassengerData = ({ filledFormList, setFilledFormList, bookingId, selectedS
     });
 
     // Remove seats already taken by others (allow replacing current selection)
-    const taken = new Set(selectedSeats.filter(Boolean));
+    const taken = new Set([
+      ...selectedSeats.filter(Boolean),
+      ...((occupiedSeats || []).filter(Boolean)),
+    ]);
     if (passengerInfo.seat) taken.delete(passengerInfo.seat);
     const filterAvailable = (arr) => arr.filter((code) => !taken.has(code));
 
@@ -195,6 +217,18 @@ const PassengerData = ({ filledFormList, setFilledFormList, bookingId, selectedS
           if (passengerInfo.email) {
             try { localStorage.setItem('recentBookingEmail', passengerInfo.email); } catch {}
           }
+          if (saveDefaultContact) {
+            try {
+              localStorage.setItem('defaultContact', JSON.stringify({
+                email: passengerInfo.email,
+                phone: passengerInfo.phone,
+                country: passengerInfo.country,
+                state: passengerInfo.state,
+                city: passengerInfo.city,
+                pincode: passengerInfo.pincode,
+              }));
+            } catch {}
+          }
           setFilledFormList((prev) => [...prev, "filled"]);
           toast.success("Passenger details saved. We'll create the booking next.");
           setFormFilled(true);
@@ -239,6 +273,18 @@ const PassengerData = ({ filledFormList, setFilledFormList, bookingId, selectedS
           // Persist primary contact email
           if (passengerInfo.email) {
             try { localStorage.setItem('recentBookingEmail', passengerInfo.email); } catch {}
+          }
+          if (saveDefaultContact) {
+            try {
+              localStorage.setItem('defaultContact', JSON.stringify({
+                email: passengerInfo.email,
+                phone: passengerInfo.phone,
+                country: passengerInfo.country,
+                state: passengerInfo.state,
+                city: passengerInfo.city,
+                pincode: passengerInfo.pincode,
+              }));
+            } catch {}
           }
           setFormFilled(true);
         } else {
@@ -310,7 +356,24 @@ const PassengerData = ({ filledFormList, setFilledFormList, bookingId, selectedS
               <span className="px-2 py-0.5 text-xs rounded-full border bg-slate-50">{passengerInfo.seat}</span>
             )}
           </div>
-          {/* Status chip and Hide/Show toggle removed by request */}
+          {/* Quick fill from user profile */}
+          {currentUser && (
+            <button
+              type="button"
+              className="text-xs px-2 py-1 rounded border hover:bg-slate-50"
+              title="Fill with my profile"
+              onClick={() => {
+                setPassengerInfo(prev => ({
+                  ...prev,
+                  firstName: prev.firstName || currentUser.username || "",
+                  lastName: prev.lastName || currentUser.surname || "",
+                  email: prev.email || currentUser.email || "",
+                }));
+              }}
+            >
+              Use my profile
+            </button>
+          )}
         </div>
         <div>
         <div className="flex flex-col border-2 rounded-lg mb-4 bg-white w-full gap-8 ">
@@ -440,6 +503,12 @@ const PassengerData = ({ filledFormList, setFilledFormList, bookingId, selectedS
               </div>
             </div>
           </div>
+          <div className="px-2 pb-2">
+            <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+              <input type="checkbox" checked={saveDefaultContact} onChange={(e)=>setSaveDefaultContact(e.target.checked)} />
+              Save as default contact
+            </label>
+          </div>
           {/* Seat selection moved to end for better flow */}
           <div className="px-2 pb-4">
             <div className="flex items-center justify-between">
@@ -463,28 +532,30 @@ const PassengerData = ({ filledFormList, setFilledFormList, bookingId, selectedS
                   const renderSeat = (col) => {
                     const code = `${row}${col}`;
                     const takenByOther = selectedSeats.includes(code) && passengerInfo.seat !== code;
+                    const globallyTaken = (occupiedSeats || []).includes(code);
                     const mine = passengerInfo.seat === code;
-                    // Demo pricing: window seats and exit row seats show ₹
+                    // Visual styles
                     const isWindow = col === 'A' || col === 'D';
-                    const priced = isWindow || exitRow;
+                    const priced = isWindow || exitRow; // keep priced hint, but always show code
                     return (
                       <button
                         type="button"
                         key={code}
-                        disabled={takenByOther}
+                        disabled={takenByOther || (globallyTaken && !mine)}
                         onClick={() => handleOnchange({ target: { name: "seat", value: mine ? "" : code } })}
-                        className={`w-8 h-8 rounded-md flex items-center justify-center border text-xs transition ${
-                          takenByOther
+                        className={`relative w-9 h-9 rounded-md flex items-center justify-center border text-xs transition ${
+                          takenByOther || (globallyTaken && !mine)
                             ? "bg-gray-200 text-gray-400 border-gray-300 cursor-not-allowed"
                             : mine
                             ? "bg-blue-600 text-white border-blue-700 ring-2 ring-blue-300"
-                            : priced
-                            ? "bg-blue-500 text-white border-blue-600 hover:bg-blue-600"
-                            : "bg-white text-slate-700 hover:bg-slate-50"
+                            : "bg-green-50 hover:bg-green-100 text-green-800 border-green-500"
                         }`}
-                        title={`${code}${priced ? " • Paid" : ""}`}
+                        title={`${code}${globallyTaken && !mine ? " • Booked" : mine ? " • Selected" : " • Available"}`}
                       >
-                        {priced ? "₹" : ""}
+                        <span className="pointer-events-none">{code}</span>
+                        {globallyTaken && !mine && (
+                          <span className="absolute inset-0 flex items-center justify-center text-gray-500 text-base">❌</span>
+                        )}
                       </button>
                     );
                   };
@@ -515,18 +586,18 @@ const PassengerData = ({ filledFormList, setFilledFormList, bookingId, selectedS
               placeholder="Seat (e.g., 14C)"
               className="border rounded p-2 mt-2 w-40"
             />
-            <div className="flex items-center gap-3 text-[11px] text-slate-500 mt-2">
+            <div className="flex items-center gap-4 text-[11px] text-slate-600 mt-2">
               <div className="flex items-center gap-1">
-                <span className="inline-block w-4 h-4 rounded border bg-blue-500" />
-                <span>Preferred</span>
+                <span className="inline-block w-4 h-4 rounded border border-green-600 bg-green-50" />
+                <span>Available</span>
               </div>
               <div className="flex items-center gap-1">
-                <span className="inline-block w-4 h-4 rounded border bg-blue-600" />
+                <span className="inline-block w-4 h-4 rounded border border-blue-700 bg-blue-600" />
                 <span>Selected</span>
               </div>
               <div className="flex items-center gap-1">
-                <span className="inline-block w-4 h-4 rounded border bg-gray-200" />
-                <span>Unavailable</span>
+                <span className="inline-block w-4 h-4 rounded border border-gray-300 bg-gray-200 relative" />
+                <span>Booked</span>
               </div>
             </div>
           </div>
@@ -685,11 +756,39 @@ const Details = () => {
   const startRow = 12;
   const seatRows = Array.from({ length: totalRows }).map((_, i) => startRow + i);
   const isExitRow = (row) => row === 17 || row === 18;
+  const [occupiedSeats, setOccupiedSeats] = useState([]);
+
+  // Fetch occupied seats for this flight instance (exclude cancelled bookings)
+  useEffect(() => {
+    const loadOccupied = async () => {
+      try {
+        const flightNo = bookingDetails?.flightNo || bookedFlight?.flightNo;
+        const departure = bookingDetails?.departure || bookedFlight?.departure;
+        if (!flightNo || !departure) return;
+        const depISO = typeof departure === 'string' ? departure : new Date(departure).toISOString();
+        const resp = await fetch(`http://localhost:5000/api/passengers/occupied?flightNo=${encodeURIComponent(flightNo)}&departure=${encodeURIComponent(depISO)}`);
+        const data = await resp.json();
+        if (data.success && Array.isArray(data.seats)) {
+          setOccupiedSeats(data.seats);
+        }
+      } catch (e) {
+        console.warn('Failed to load occupied seats', e);
+      }
+    };
+    loadOccupied();
+  }, [bookingDetails?.flightNo, bookingDetails?.departure, bookedFlight?.flightNo, bookedFlight?.departure]);
   
   // Global Randomize All removed by request
   
   // Create payment intent (pay first) when no booking exists; otherwise pay for existing booking
   const handleBookFlight = async () => {
+    // Require login to book
+    const authToken = token || Cookies.get("token");
+    if (!authToken) {
+      toast.info("Please login to book a flight.");
+      const redirect = encodeURIComponent(window.location.pathname + (window.location.search || ""));
+      return navigateTo(`/login?redirect=${redirect}`);
+    }
     // Auto-submit all passenger forms to register filled forms
     try {
       const forms = document.querySelectorAll('.passenger-form');
@@ -764,9 +863,16 @@ const Details = () => {
 
         const res = await fetch("http://localhost:5000/api/razorpay/create-order-intent", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", 'Authorization': `Bearer ${authToken}` },
           body: JSON.stringify(intentPayload),
         });
+        // If not authorized, redirect to login with return path
+        if (res.status === 401 || res.status === 403) {
+          toast.error("Your session has expired. Please login to continue.");
+          const redirect = encodeURIComponent(window.location.pathname + (window.location.search || ""));
+          navigateTo(`/login?redirect=${redirect}`);
+          throw new Error("Unauthorized");
+        }
         const data = await res.json();
         if (!data.success) throw new Error(data.message || "Failed to start Razorpay");
 
@@ -795,7 +901,7 @@ const Details = () => {
               try {
                 const verify = await fetch("http://localhost:5000/api/razorpay/verify", {
                   method: "POST",
-                  headers: { "Content-Type": "application/json" },
+                  headers: { "Content-Type": "application/json", 'Authorization': `Bearer ${authToken}` },
                   body: JSON.stringify({
                     razorpay_order_id: response.razorpay_order_id,
                     razorpay_payment_id: response.razorpay_payment_id,
@@ -803,6 +909,12 @@ const Details = () => {
                     intentId,
                   }),
                 });
+                if (verify.status === 401 || verify.status === 403) {
+                  toast.error("Your session has expired. Please login to complete payment.");
+                  const redirect = encodeURIComponent(`/booked`);
+                  navigateTo(`/login?redirect=${redirect}`);
+                  return reject(new Error("Unauthorized"));
+                }
                 const vj = await verify.json();
                 if (vj.success && vj.bookingId) {
                   toast.success("Payment successful!");
@@ -862,6 +974,7 @@ const Details = () => {
                 index={index}
                 seatRows={seatRows}
                 isExitRow={isExitRow}
+                occupiedSeats={occupiedSeats}
               />
             </div>
           ))}

@@ -1,7 +1,8 @@
 // src/App.jsx
-import { BrowserRouter, Routes, Route, useLocation, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation, Navigate, useNavigate } from "react-router-dom";
 import { useEffect } from "react";
 import { useSelector } from "react-redux";
+import Cookies from "js-cookie";
 
 import Home from "./Components/Home";
 import Navbar from "./Navbar";
@@ -25,6 +26,8 @@ import FlightDetails from "./Components/FlightDetails";
 import ViewTicket from "./Components/ViewTicket";
 import Details from "./Components/Details";
 import ForgotPassword from "./Components/Auth/ForgotPassword";
+import SeatBookingDemo from "./Components/SeatBookingDemo";
+import SeatBooking from "./Components/SeatBooking";
 
 import { useAdminStore } from "./stores/adminStore";
 import { accesstoken } from "./Components/redux/tokenSlice";
@@ -34,6 +37,18 @@ import { user } from "./Components/redux/userSlice";
 const ProtectedRoute = ({ children }) => {
   const isAuthenticated = useAdminStore((state) => state.isAuthenticated());
   return isAuthenticated ? children : <Navigate to="/admin/login" />;
+};
+
+// Simple user auth guard for booking flow
+const RequireAuth = ({ children }) => {
+  const token = useSelector(accesstoken);
+  const cookieToken = Cookies.get("token");
+  const location = useLocation();
+  if (!token && !cookieToken) {
+    const redirect = encodeURIComponent(location.pathname + (location.search || ""));
+    return <Navigate to={`/login?redirect=${redirect}`} replace />;
+  }
+  return children;
 };
 
 const AppContent = () => {
@@ -60,31 +75,35 @@ const AppContent = () => {
 
   return (
     <div className="min-h-screen w-full flex flex-col">
-      {!shouldHideLayout && <Navbar />}
+      {!shouldHideLayout && (
+        <div className="fixed top-0 left-0 right-0 z-50">
+          <Navbar />
+        </div>
+      )}
 
+  <div className={shouldHideLayout ? "" : "flex-1 pt-20"}>
       <Routes>
         {/* Public Routes */}
         <Route path="/" element={<Home />} />
         <Route path="/flights" element={<Flights />} />
         <Route path="/bookings" element={<Bookings />} />          {/* List of bookings */}
-  <Route path="/booked" element={<Bookings />} />            {/* Legacy entry - show bookings list */}
+        <Route path="/booked" element={<Bookings />} />            {/* Legacy entry - show bookings list */}
         <Route path="/bookings/:id" element={<Booked />} />        {/* View single ticket */}
         <Route path="/ticket/:id" element={<ViewTicket />} />      {/* Enhanced ticket view */}
         <Route path="/booked/:id" element={<Booked />} />         {/* Single booking view */}
-  <Route path="/details" element={<Details />} />          {/* User details form before booking */}
-  <Route path="/details/:id" element={<Details />} />      {/* User details form after booking */}
+  <Route path="/details" element={<RequireAuth><Details /></RequireAuth>} />          {/* User details form before booking */}
+  <Route path="/details/:id" element={<RequireAuth><Details /></RequireAuth>} />      {/* User details form after booking */}
         <Route path="/flight-info/:id" element={<FlightDetails />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
-  <Route path="/forgot" element={<ForgotPassword />} />
+        <Route path="/forgot" element={<ForgotPassword />} />
         <Route path="/profile" element={<Profile />} />
+  <Route path="/demo/seats" element={<SeatBookingDemo />} />
+  <Route path="/demo/seat-grid" element={<SeatBooking />} />
 
         {/* Admin Protected Routes */}
-        <Route
-          path="/admin/login"
-          element={<AdminLogin />}
-        />
+        <Route path="/admin/login" element={<AdminLogin />} />
         <Route
           path="/admin/dashboard"
           element={
@@ -133,9 +152,8 @@ const AppContent = () => {
             </ProtectedRoute>
           }
         />
-        
       </Routes>
-
+      </div>
       {!shouldHideLayout && <Footer />}
     </div>
   );

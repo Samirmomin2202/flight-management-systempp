@@ -95,7 +95,15 @@ const Booked = () => {
     if (!window.confirm("Are you sure you want to cancel this ticket?")) return;
 
     try {
-      const res = await axios.delete(`http://localhost:5000/api/bookings/${id}`);
+      const authToken = token || Cookies.get("token");
+      if (!authToken) {
+        toast.error("Please log in to cancel your booking.", { theme: "colored" });
+        return;
+      }
+      const res = await axios.delete(
+        `http://localhost:5000/api/bookings/${id}`,
+        { headers: { Authorization: `Bearer ${authToken}` } }
+      );
       if (res.data.success) {
         toast.success("✅ Ticket canceled successfully!", {
           position: "top-right",

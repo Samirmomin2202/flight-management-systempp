@@ -2,10 +2,12 @@ import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { Plane, ArrowRight } from "lucide-react";
+import FlightFiltersSidebar from "./FlightFiltersSidebar";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import useFlightStore from "./zustand store/ZStore";
 import { useSelector } from "react-redux";
+import Cookies from "js-cookie";
 import { accesstoken } from "./redux/tokenSlice";
 import { user } from "./redux/userSlice";
 import airlineImg from "../Assets/airline.jpg";
@@ -28,6 +30,9 @@ const Flights = () => {
   const [sortBy, setSortBy] = useState("price"); // price | duration | departure
   const [timeOfDay, setTimeOfDay] = useState("All"); // All | Morning | Afternoon | Evening | Night
   const [airlineFilter, setAirlineFilter] = useState("All");
+  const PRICE_MIN = 0;
+  const PRICE_MAX = 100000;
+  const [priceRange, setPriceRange] = useState({ absMin: PRICE_MIN, absMax: PRICE_MAX, min: PRICE_MIN, max: PRICE_MAX });
   const API_URL = "http://localhost:5000/api/flights";
   const navigate = useNavigate();
   // Store helpers
@@ -38,6 +43,11 @@ const Flights = () => {
     () => Array.from(new Set((allFlights || []).map((f) => f.airline).filter(Boolean))),
     [allFlights]
   );
+
+  // Fixed absolute price range like design reference
+  useEffect(() => {
+    setPriceRange((prev) => ({ absMin: PRICE_MIN, absMax: PRICE_MAX, min: prev.min ?? PRICE_MIN, max: prev.max ?? PRICE_MAX }));
+  }, []);
 
   // Hero slider images (local)
   const heroSlides = useMemo(() => [heroImage, airlineImg], []);
@@ -131,6 +141,15 @@ const Flights = () => {
     if (airlineFilter !== "All") {
       filtered = filtered.filter((f) => (f.airline || "").toLowerCase() === airlineFilter.toLowerCase());
     }
+    // Price range
+    if (priceRange && (priceRange.min || priceRange.max)) {
+      filtered = filtered.filter((f) => {
+        const p = Number(f.price) || 0;
+        const min = priceRange.min ?? priceRange.absMin;
+        const max = priceRange.max ?? priceRange.absMax;
+        return p >= min && p <= max;
+      });
+    }
 
     // Sorting similar to MMT toggles
     const sorted = [...filtered].sort((a, b) => {
@@ -173,6 +192,11 @@ const Flights = () => {
   // 🔹 New flow: go to details first, collect passengers, then create booking
   const handleBook = (flight) => {
     console.log("� Proceed to details for flight:", flight);
+    const authToken = token || Cookies.get("token");
+    if (!authToken) {
+      toast.info("Please login to continue booking.");
+      return navigate(`/login?redirect=${encodeURIComponent('/details')}`);
+    }
     // Save selected flight and passengers count in store/localStorage
     getBookedFlight(flight);
     getPassengers(search.passengers || 1);
@@ -281,7 +305,7 @@ const Flights = () => {
             <div className="mt-2 pl-1">
               <button
                 type="button"
-                onClick={() => { setSearch({ from: "", to: "", date: "", passengers: 1, cabinClass: "All" }); setShowAll(true); setFilteredFlights(allFlights); }}
+                onClick={() => { setSearch({ from: "", to: "", date: "", passengers: 1, cabinClass: "All" }); setShowAll(true); setFilteredFlights(allFlights); setTimeOfDay('All'); setAirlineFilter('All'); setPriceRange({ absMin: PRICE_MIN, absMax: PRICE_MAX, min: PRICE_MIN, max: PRICE_MAX }); runFilter(); }}
                 className="text-xs text-gray-700 hover:text-blue-700"
               >
                 Clear all
@@ -308,78 +332,38 @@ const Flights = () => {
         <h2 className="text-xl md:text-2xl font-bold mb-4 flex items-center gap-2">
           <Plane className="text-blue-700" /> Available Flights
         </h2>
-
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <button
-          type="button"
-          onClick={fetchFlights}
-          className="px-4 py-2 border rounded-lg bg-white hover:bg-gray-50"
-        >
-          Reload flights
-        </button>
-        <label className="inline-flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={showAll}
-            onChange={(e) => setShowAll(e.target.checked)}
+      {/* Sidebar + Results */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="md:col-span-1">
+          <FlightFiltersSidebar
+            showAll={showAll}
+            onToggleShowAll={setShowAll}
+            timeOfDay={timeOfDay}
+            setTimeOfDay={setTimeOfDay}
+            airlineFilter={airlineFilter}
+            setAirlineFilter={setAirlineFilter}
+            airlineOptions={airlineOptions}
+            sortBy={sortBy}
+            sortOrder={sortOrder}
+            onSort={handleSort}
+            onReload={fetchFlights}
+            priceRange={priceRange}
+            onPriceChange={(next) => {
+              // keep min <= max
+              const clamped = {
+                absMin: next.absMin,
+                absMax: next.absMax,
+                min: Math.min(next.min, next.max),
+                max: Math.max(next.min, next.max),
+              };
+              setPriceRange(clamped);
+              runFilter();
+            }}
           />
-          Show all flights (incl. past)
-        </label>
-
-        {/* Time-of-day chips */}
-        <div className="flex items-center gap-2 text-sm">
-          {["All", "Morning", "Afternoon", "Evening", "Night"].map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setTimeOfDay(t)}
-              className={`px-3 py-1 rounded-full border ${timeOfDay === t ? "bg-blue-600 text-white border-blue-600" : "bg-white hover:bg-gray-50"}`}
-            >
-              {t}
-            </button>
-          ))}
         </div>
-
-        {/* Airline filter */}
-        <div className="ml-auto">
-          <select
-            value={airlineFilter}
-            onChange={(e) => setAirlineFilter(e.target.value)}
-            className="border rounded-lg px-3 py-2 text-sm bg-white"
-            title="Filter by airline"
-          >
-            <option value="All">All airlines</option>
-            {airlineOptions.map((air) => (
-              <option key={air} value={air}>{air}</option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {/* Sort Presets */}
-      <div className="mb-6 flex flex-wrap gap-3">
-        <button
-          className={`px-4 py-2 rounded-lg border ${sortBy === "price" ? "bg-blue-600 text-white border-blue-600" : "bg-white hover:bg-gray-50"}`}
-          onClick={() => handleSort("price")}
-        >
-          Price {sortBy === "price" ? (sortOrder === "asc" ? "↑" : "↓") : ""}
-        </button>
-        <button
-          className={`px-4 py-2 rounded-lg border ${sortBy === "duration" ? "bg-blue-600 text-white border-blue-600" : "bg-white hover:bg-gray-50"}`}
-          onClick={() => handleSort("duration")}
-        >
-          Duration {sortBy === "duration" ? (sortOrder === "asc" ? "↑" : "↓") : ""}
-        </button>
-        <button
-          className={`px-4 py-2 rounded-lg border ${sortBy === "departure" ? "bg-blue-600 text-white border-blue-600" : "bg-white hover:bg-gray-50"}`}
-          onClick={() => handleSort("departure")}
-        >
-          Departure {sortBy === "departure" ? (sortOrder === "asc" ? "↑" : "↓") : ""}
-        </button>
-      </div>
-
-      {/* Horizontal List */}
-      <div className="flex flex-col gap-4">
+        <div className="md:col-span-3">
+          {/* Results list */}
+          <div className="flex flex-col gap-4">
         {loading ? (
           Array.from({ length: 6 }).map((_, idx) => (
             <div key={idx} className="bg-white rounded-xl shadow p-5 animate-pulse">
@@ -459,6 +443,8 @@ const Flights = () => {
             </div>
           </div>
         )}
+          </div>
+        </div>
       </div>
       </div>
       <ToastContainer position="top-right" autoClose={3000} />

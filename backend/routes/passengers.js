@@ -49,10 +49,14 @@ router.post("/", async (req, res) => {
       }
 
       // Prevent duplicates across other active (non-cancelled) bookings for the same flight instance
-      // Identify all bookings for same flightNo and exact departure that are not cancelled
+      // Identify all bookings for same flightNo and departure within the same minute window, not exact to the millisecond
+      const depStart = new Date(parentBooking.departure);
+      depStart.setSeconds(0, 0);
+      const depEnd = new Date(depStart);
+      depEnd.setMinutes(depStart.getMinutes() + 1);
       const sameInstanceBookings = await Booking.find({
         flightNo: parentBooking.flightNo,
-        departure: parentBooking.departure,
+        departure: { $gte: depStart, $lt: depEnd },
         status: { $ne: "cancelled" },
       }).select("_id").lean();
       const sameIds = sameInstanceBookings.map(b => b._id);
@@ -97,9 +101,14 @@ router.get("/occupied", async (req, res) => {
     if (isNaN(dep.getTime())) {
       return res.status(400).json({ success: false, message: "Invalid departure datetime" });
     }
+    // Match any booking within the same minute window as the requested departure
+    const depStart = new Date(dep);
+    depStart.setSeconds(0, 0);
+    const depEnd = new Date(depStart);
+    depEnd.setMinutes(depStart.getMinutes() + 1);
     const bookings = await Booking.find({
       flightNo,
-      departure: dep,
+      departure: { $gte: depStart, $lt: depEnd },
       status: { $ne: "cancelled" },
     }).select("_id").lean();
     const ids = bookings.map(b => b._id);

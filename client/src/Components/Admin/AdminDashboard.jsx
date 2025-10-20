@@ -55,6 +55,44 @@ ChartJS.register(
   };
   ChartJS.register(valueLabelPlugin);
 
+  // Lightweight plugin to render labels inside pie/doughnut slices (Top Routes)
+  const pieLabelPlugin = {
+    id: "pieLabel",
+    afterDatasetsDraw(chart, args, pluginOptions) {
+      const opt = chart.options?.plugins?.pieLabel;
+      if (!opt || opt.display === false) return;
+      const type = chart.config?.type;
+      if (type !== 'pie' && type !== 'doughnut') return;
+      const ctx = chart.ctx;
+      const meta = chart.getDatasetMeta(0);
+      const labels = chart.data.labels || [];
+      if (!meta || !meta.data) return;
+      meta.data.forEach((arc, i) => {
+        const label = labels[i];
+        if (!label) return;
+        // Skip very small slices
+        const circ = arc.circumference || 0;
+        if (circ && circ < 0.25) return;
+        const pos = arc.tooltipPosition();
+        const maxChars = opt.maxChars ?? 16;
+        const text = label.length > maxChars ? label.slice(0, maxChars - 1) + '…' : label;
+        ctx.save();
+        ctx.fillStyle = opt.color || "#ffffff";
+        ctx.font = opt.font || "11px sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        // Optional subtle shadow for contrast
+        if (opt.shadow) {
+          ctx.shadowColor = "rgba(0,0,0,0.25)";
+          ctx.shadowBlur = 2;
+        }
+        ctx.fillText(text, pos.x, pos.y);
+        ctx.restore();
+      });
+    }
+  };
+  ChartJS.register(pieLabelPlugin);
+
 const AdminDashboard = () => {
   const [stats, setStats] = useState({ totalFlights: 0, bookingsToday: 0, registeredUsers: 0, totalRevenue: 0, revenueToday: 0, weeklyFlights: { labels: [], data: [] } });
   const [loading, setLoading] = useState(true);
@@ -306,46 +344,42 @@ const AdminDashboard = () => {
 
   // Removed Payment Status Distribution chart
 
-  // Average Ticket Price (computed as revenue/bookings per day)
-  const hourlyAvgPrice = dailyBookings.map((b, i) => {
-    const r = dailyRevenue[i] || 0;
-    return b > 0 ? Math.round(r / b) : 0;
-  });
-  // Bar chart for average ticket price per day (last 7 days)
-  const avgTicketBarData = {
+  // Tickets Sold (last 7 days) - Bar chart using dailyBookings
+  const ticketsSoldBarData = {
     labels: dailyLabels,
     datasets: [
       {
-        label: "Avg Ticket (₹)",
-        data: hourlyAvgPrice,
+        type: "bar",
+        label: "Tickets Sold",
+        data: dailyBookings,
         backgroundColor: "rgba(59, 130, 246, 0.6)", // blue-500
+        borderColor: "#3B82F6",
+        borderWidth: 1,
         borderRadius: 6,
       },
     ],
   };
-  const avgTicketBarOptions = {
+  const ticketsSoldBarOptions = {
     responsive: true,
     scales: {
       y: {
         beginAtZero: true,
-        title: { display: true, text: "Avg Price (₹)" },
-        ticks: {
-          callback: (v) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(v || 0),
-        },
+        title: { display: true, text: "Tickets" },
         grid: { color: "#e5e7eb" },
       },
       x: { grid: { display: false } },
     },
     plugins: {
-      legend: { display: false },
+      legend: { position: "top", labels: { usePointStyle: true } },
       tooltip: {
         callbacks: {
           label: function (context) {
             const value = context.parsed.y;
-            return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(value || 0);
+            return `Tickets Sold: ${value}`;
           },
         },
       },
+      valueLabel: { display: true, font: "12px sans-serif", color: "#111827" },
     },
     maintainAspectRatio: false,
   };
@@ -381,11 +415,16 @@ const AdminDashboard = () => {
           },
         },
       },
+      pieLabel: { display: true, font: "11px sans-serif", color: "#ffffff", maxChars: 16, shadow: true },
     },
     maintainAspectRatio: false,
   };
 
   const formatINR = (n) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(n || 0);
+
+  // Removed growth calculations and pills
+
+  // End datasets
 
   return (
     <div className="min-h-screen flex">
@@ -404,19 +443,27 @@ const AdminDashboard = () => {
         <div className="mt-8 grid grid-cols-1 md:grid-cols-4 gap-6">
           <div className="bg-white shadow-md p-4 rounded-lg">
             <h2 className="text-lg font-semibold mb-2">Total Flights</h2>
-            <p className="text-2xl font-bold text-blue-700">{loading ? "…" : stats.totalFlights}</p>
+            <div className="flex items-center gap-2">
+              <p className="text-2xl font-bold text-blue-700">{loading ? "…" : stats.totalFlights}</p>
+            </div>
           </div>
           <div className="bg-white shadow-md p-4 rounded-lg">
             <h2 className="text-lg font-semibold mb-2">Bookings Today</h2>
-            <p className="text-2xl font-bold text-blue-700">{loading ? "…" : stats.bookingsToday}</p>
+            <div className="flex items-center gap-2">
+              <p className="text-2xl font-bold text-blue-700">{loading ? "…" : stats.bookingsToday}</p>
+            </div>
           </div>
           <div className="bg-white shadow-md p-4 rounded-lg">
             <h2 className="text-lg font-semibold mb-2">Registered Users</h2>
-            <p className="text-2xl font-bold text-blue-700">{loading ? "…" : stats.registeredUsers}</p>
+            <div className="flex items-center gap-2">
+              <p className="text-2xl font-bold text-blue-700">{loading ? "…" : stats.registeredUsers}</p>
+            </div>
           </div>
           <div className="bg-white shadow-md p-4 rounded-lg">
             <h2 className="text-lg font-semibold mb-1">Total Revenue</h2>
-            <p className="text-2xl font-bold text-emerald-700">{loading ? "…" : formatINR(stats.totalRevenue)}</p>
+            <div className="flex items-center gap-2">
+              <p className="text-2xl font-bold text-emerald-700">{loading ? "…" : formatINR(stats.totalRevenue)}</p>
+            </div>
             <p className="text-xs text-gray-500 mt-1">Today: <span className="font-semibold text-emerald-700">{loading ? "…" : formatINR(stats.revenueToday)}</span></p>
           </div>
         </div>
@@ -438,19 +485,21 @@ const AdminDashboard = () => {
             </div>
           </div>
 
-          {/* Average Ticket Price (Last 7 Days) - Bar */}
+          {/* Tickets Sold (Last 7 Days) - Bar */}
           <div className="bg-white p-6 rounded shadow">
-            <h3 className="text-xl font-semibold mb-4 text-gray-800">Average Ticket Price (Last 7 Days)</h3>
+            <h3 className="text-xl font-semibold mb-4 text-gray-800">Tickets Sold (Last 7 Days)</h3>
             <div style={{ height: 340 }}>
-              <Bar data={avgTicketBarData} options={avgTicketBarOptions} />
+              <Bar data={ticketsSoldBarData} options={ticketsSoldBarOptions} />
             </div>
           </div>
         </div>
 
         <div className="mt-10 grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Profit (Last 7 Days, 60% of Revenue) */}
-          <div className="bg-white p-6 rounded shadow">
-            <h3 className="text-xl font-semibold mb-4 text-gray-800">Profit (Last 7 Days)</h3>
+            <div className="bg-white p-6 rounded shadow">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-semibold text-gray-800">Profit (Last 7 Days)</h3>
+            </div>
             <div style={{ height: 340 }}>
               <Line data={dailyProfitData} options={{ ...dailyProfitOptions, maintainAspectRatio: false, scales: { ...dailyProfitOptions.scales, y: { ...dailyProfitOptions.scales.y, grid: { color: '#e5e7eb' } } } }} />
             </div>

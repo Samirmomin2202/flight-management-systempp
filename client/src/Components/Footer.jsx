@@ -87,7 +87,7 @@ const Footer = () => {
           </div>
         </div>
 
-        <div className="mt-8 pt-4 border-t border-blue-800 flex flex-col md:flex-row items-center justify-between text-sm text-blue-300 gap-3">
+  <div className="mt-8 pt-4 border-t border-blue-800 flex flex-col md:flex-row items-center justify-between text-sm text-blue-300 gap-3">
           <p>© {new Date().getFullYear()} FlightHub. All rights reserved.</p>
           <div className="flex items-center gap-4">
             <Link to="/contact" className="hover:underline">Support</Link>

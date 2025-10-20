@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import Slider from "react-slick";
 import { useSelector } from "react-redux";
@@ -8,6 +8,7 @@ import FlightSearchMobile from "./FlightSearchMobile";
 import SearchResult from "./SearchResult";
 import Footer from "./Footer";
 import airlineImg from "../Assets/airline.jpg";
+import { listSlides } from "../api/slidesApi";
 
 import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
@@ -15,6 +16,18 @@ import "slick-carousel/slick/slick-theme.css";
 const Home = () => {
   const token = useSelector(accesstoken);
   const { flightData } = useFlightStore();
+  const [slides, setSlides] = useState([]);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const data = await listSlides(true);
+        if (mounted) setSlides(data);
+      } catch {}
+    })();
+    return () => { mounted = false; };
+  }, []);
 
   // Slider settings
   const settings = {
@@ -28,24 +41,50 @@ const Home = () => {
   return (
     <div className="w-full sm:min-h-screen">
       {/* ---------- Desktop / Large screen ---------- */}
-      <div className="hidden sm:block bg-hero-img bg-cover bg-center w-full h-[90vh]">
-        <div className="flex flex-col h-full justify-center px-8">
-          <div className="text-white font-bold font-sans text-6xl md:text-8xl tracking-wider gap-2">
-            <h1>Ready To</h1>
-            <h1>Takeoff?</h1>
+      <div className="hidden sm:block w-full h-[90vh]">
+        {slides.length > 0 ? (
+          <Slider dots={true} infinite={true} autoplay={true} autoplaySpeed={4000} arrows={false}>
+            {slides.map((s) => (
+              <div key={s._id} className="w-full h-[90vh] relative">
+                {s.imageBase64 || s.imageUrl ? (
+                  <img src={s.imageBase64 || s.imageUrl} alt={s.title} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full bg-hero-img bg-cover bg-center" />
+                )}
+                <div className="absolute inset-0 bg-black/40" />
+                <div className="absolute inset-0 flex flex-col justify-center px-12 text-white max-w-3xl">
+                  <h2 className="text-5xl md:text-7xl font-extrabold leading-tight drop-shadow">{s.title}</h2>
+                  {s.subtitle && <p className="mt-3 text-lg text-slate-100">{s.subtitle}</p>}
+                  {s.ctaUrl && (
+                    <Link to={s.ctaUrl} className="mt-6 inline-block bg-blue-700 hover:bg-blue-800 text-white px-6 py-2.5 rounded-md">
+                      {s.ctaText || "Explore"}
+                    </Link>
+                  )}
+                </div>
+              </div>
+            ))}
+          </Slider>
+        ) : (
+          <div className="bg-hero-img bg-cover bg-center w-full h-full">
+            <div className="flex flex-col h-full justify-center px-8">
+              <div className="text-white font-bold font-sans text-6xl md:text-8xl tracking-wider gap-2">
+                <h1>Ready To</h1>
+                <h1>Takeoff?</h1>
+              </div>
+              <div className="text-xl text-slate-100 font-medium mt-6">
+                <p>It’s a big world out there, book your flight</p>
+                <p>tickets easily and explore your dream destination.</p>
+              </div>
+              <div>
+                <Link to="/flights">
+                  <button className="text-white text-2xl font-medium mt-6 px-9 rounded-md bg-blue-950 py-2 hover:bg-blue-800 transition">
+                    Book Now
+                  </button>
+                </Link>
+              </div>
+            </div>
           </div>
-          <div className="text-xl text-slate-100 font-medium mt-6">
-            <p>It’s a big world out there, book your flight</p>
-            <p>tickets easily and explore your dream destination.</p>
-          </div>
-          <div>
-            <Link to="/flights">
-              <button className="text-white text-2xl font-medium mt-6 px-9 rounded-md bg-blue-950 py-2 hover:bg-blue-800 transition">
-                Book Now
-              </button>
-            </Link>
-          </div>
-        </div>
+        )}
       </div>
 
   {/* ---------- Desktop informational sections ---------- */}

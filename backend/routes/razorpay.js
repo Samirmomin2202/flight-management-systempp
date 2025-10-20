@@ -87,7 +87,7 @@ router.post("/verify", auth, async (req, res) => {
       passengers: intent.passengersCount,
       userEmail: intent.userEmail,
       bookingDate: new Date(),
-      status: "confirmed",
+      status: "pending", // pending by default; admin can confirm/cancel later
       paymentStatus: "completed",
       paymentId: razorpay_payment_id,
       paymentMethod: "razorpay",

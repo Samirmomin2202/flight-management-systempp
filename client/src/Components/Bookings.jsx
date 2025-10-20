@@ -35,11 +35,11 @@ const Bookings = () => {
   const currentUser = useSelector(user);
   const token = useSelector(accesstoken);
 
-  // Informational auth check (guest allowed)
+  // If no auth token, redirect to login before viewing bookings list
   useEffect(() => {
     const cookieToken = Cookies.get("token");
     if (!token && !cookieToken) {
-      console.log("ℹ️ No auth token present. Showing guest bookings if available.");
+      navigate(`/login?redirect=${encodeURIComponent('/bookings')}`);
     }
   }, [token]);
 
@@ -71,13 +71,16 @@ const Bookings = () => {
         setLoading(false);
         return;
       }
+      // Require authentication for protected bookings endpoint
+      if (!authToken) {
+        toast.error("Please login to view your bookings");
+        navigate(`/login?redirect=${encodeURIComponent('/bookings')}`);
+        setLoading(false);
+        return;
+      }
       
       console.log(`🔍 Attempting to fetch bookings for user: ${userEmail}`);
-      if (authToken) {
-        console.log(`🔑 Using token: ${authToken.substring(0, 20)}...`);
-      } else {
-        console.log("� No token - proceeding as guest");
-      }
+      console.log(`🔑 Using token: ${authToken.substring(0, 20)}...`);
       
       // Test basic server connectivity first
       try {
@@ -124,10 +127,13 @@ const Bookings = () => {
         console.error("❌ Error fetching bookings from MongoDB:", error);
         
         if (error.response?.status === 401) {
-          // In public-first mode, treat 401 as non-fatal (older servers may not require auth)
-          toast.info("Authentication optional. Try logging in if you expected results.");
+          toast.error("Unauthorized. Please login again.");
+          navigate(`/login?redirect=${encodeURIComponent('/bookings')}`);
+          return;
         } else if (error.response?.status === 403) {
           toast.error("Access denied. You can only view your own bookings.");
+          navigate(`/login?redirect=${encodeURIComponent('/bookings')}`);
+          return;
         } else if (error.code === 'ECONNREFUSED' || error.message.includes('Network Error')) {
           toast.error("Cannot connect to server. Please ensure the backend is running.");
         } else {
@@ -155,9 +161,20 @@ const Bookings = () => {
     const confirmCancel = window.confirm("Are you sure you want to cancel this booking?");
     if (confirmCancel) {
       try {
+        // Ensure we have auth before attempting cancel
+        const authToken = token || Cookies.get("token");
+        if (!authToken) {
+          toast.error("Please login to cancel a booking");
+          navigate(`/login?redirect=${encodeURIComponent('/bookings')}`);
+          return;
+        }
         // 🔹 FIRST: Delete from database via API
         console.log("Deleting booking from database:", bookingId);
-        const response = await bookingAPI.delete(`/${bookingId}`);
+        const response = await bookingAPI.delete(`/${bookingId}` , {
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+          }
+        });
         
         if (response.data.success) {
           console.log("Booking successfully deleted from database");
@@ -194,6 +211,12 @@ const Bookings = () => {
           if (storeBookings) {
             removeBooking(bookingId);
           }
+        } else if (error.response?.status === 401) {
+          toast.error("Unauthorized. Please login again.");
+          navigate(`/login?redirect=${encodeURIComponent('/bookings')}`);
+          return;
+        } else if (error.response?.status === 403) {
+          toast.error("Access denied. You can only cancel your own bookings.");
         } else {
           toast.error("Failed to cancel booking: " + (error.response?.data?.message || error.message));
         }
@@ -261,6 +284,19 @@ const Bookings = () => {
               console.log(`Rendering booking ${index + 1} in Bookings:`, booking);
               const dep = booking.departure ? new Date(booking.departure) : null;
               const arr = booking.arrival ? new Date(booking.arrival) : null;
+              const statusValue = (booking.status || 'pending').toLowerCase();
+              const statusClasses = (
+                statusValue === 'pending' ? 'bg-amber-100 text-amber-800' :
+                statusValue === 'confirmed' ? 'bg-emerald-100 text-emerald-800' :
+                statusValue === 'cancelled' || statusValue === 'canceled' ? 'bg-rose-100 text-rose-800' :
+                statusValue === 'scheduled' ? 'bg-blue-100 text-blue-800' :
+                statusValue === 'delayed' ? 'bg-yellow-100 text-yellow-800' :
+                statusValue === 'boarding' ? 'bg-green-100 text-green-800' :
+                statusValue === 'departed' ? 'bg-purple-100 text-purple-800' :
+                statusValue === 'arrived' ? 'bg-gray-100 text-gray-800' :
+                'bg-blue-100 text-blue-800'
+              );
+              const statusLabel = statusValue.charAt(0).toUpperCase() + statusValue.slice(1);
               
               return (
                 <div
@@ -318,23 +354,13 @@ const Bookings = () => {
                         <span className="font-medium">{booking.passengers || 1}</span>
                       </div>
 
-                      {/* Flight Status */}
-                      {booking.status && (
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Status:</span>
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            booking.status === 'scheduled' ? 'bg-blue-100 text-blue-800' :
-                            booking.status === 'delayed' ? 'bg-yellow-100 text-yellow-800' :
-                            booking.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                            booking.status === 'boarding' ? 'bg-green-100 text-green-800' :
-                            booking.status === 'departed' ? 'bg-purple-100 text-purple-800' :
-                            booking.status === 'arrived' ? 'bg-gray-100 text-gray-800' :
-                            'bg-blue-100 text-blue-800'
-                          }`}>
-                            {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
-                          </span>
-                        </div>
-                      )}
+                      {/* Flight Status (default to Pending) */}
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Status:</span>
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusClasses}`}>
+                          {statusLabel}
+                        </span>
+                      </div>
 
                       {/* Flight Class */}
                       {booking.type && (

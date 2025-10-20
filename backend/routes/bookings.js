@@ -32,13 +32,14 @@ router.post("/", auth, async (req, res) => {
   try {
     console.log("📥 Received booking request:", req.body);
     
-    // Include user email in booking data
+    // Include user email in booking data and force status to 'pending' on creation
+    const { status: _ignoredStatus, ...rest } = req.body || {};
     const bookingData = {
-      ...req.body,
+      ...rest,
       // Do not force a guest email; prefer explicit userEmail/email or leave undefined
-      userEmail: req.body.userEmail || req.body.email,
+      userEmail: rest.userEmail || rest.email,
       bookingDate: new Date(),
-      status: "confirmed"
+      status: "pending",
     };
     
     console.log("💾 Creating booking with data:", bookingData);
@@ -169,7 +170,7 @@ router.put("/:id", auth, async (req, res) => {
     if (arrival !== undefined) update.arrival = arrival ? new Date(arrival) : null;
     // Disallow price updates via this route
     if (status !== undefined) {
-      const allowed = ["confirmed", "cancelled"]; // restrict to confirmation/cancellation
+      const allowed = ["pending", "confirmed", "cancelled"]; // allow full lifecycle
       if (!allowed.includes(String(status).toLowerCase())) {
         return res.status(400).json({ success: false, message: `Invalid status. Allowed: ${allowed.join(", ")}` });
       }
@@ -224,6 +225,57 @@ router.put("/:id", auth, async (req, res) => {
     res.json({ success: true, booking: bookingWithPassengers });
   } catch (err) {
     console.error("Error updating booking:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ✅ Send ticket PDF via email (client-generated PDF)
+router.post("/:id/email", auth, async (req, res) => {
+  try {
+    const { to, filename, pdfBase64 } = req.body || {};
+    const bookingDoc = await Booking.findById(req.params.id);
+    const booking = bookingDoc ? bookingDoc.toObject() : null;
+    if (!booking) return res.status(404).json({ success: false, message: "Booking not found" });
+
+    const recipient = to || booking.userEmail;
+    if (!recipient) {
+      return res.status(400).json({ success: false, message: "Recipient email is required" });
+    }
+
+    let attachmentBuffer;
+    let attachFilename = filename || `BoardingPass-${booking.flightNo || "Flight"}-${String(booking._id).slice(-6)}.pdf`;
+
+    if (pdfBase64) {
+      // Use client-provided PDF
+      const base64 = String(pdfBase64).includes(",") ? String(pdfBase64).split(",")[1] : String(pdfBase64);
+      try {
+        attachmentBuffer = Buffer.from(base64, "base64");
+      } catch (e) {
+        return res.status(400).json({ success: false, message: "Invalid PDF content" });
+      }
+    } else {
+      // Fallback: generate server-side PDF with improved layout and full passengers
+      const passengers = await Passenger.find({ bookingId: booking._id });
+      const withPassengers = { ...booking, passengers };
+      attachmentBuffer = await generateTicketPdf(withPassengers);
+    }
+
+    await sendEmail({
+      to: recipient,
+      subject: `Your boarding pass - ${booking.flightNo || "Flight"}`,
+      text: `Dear customer,\n\nAttached is your boarding pass for booking ${booking._id}.\n\nThank you for choosing us.`,
+      attachments: [
+        {
+          filename: attachFilename,
+          content: attachmentBuffer,
+          contentType: "application/pdf",
+        },
+      ],
+    });
+
+    res.json({ success: true, message: "Email sent" });
+  } catch (err) {
+    console.error("❌ Email send error:", err);
     res.status(500).json({ success: false, message: err.message });
   }
 });

@@ -3,6 +3,8 @@ import axios from "axios";
 import AdminSidebar from "./AdminSidebar";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import { useSelector } from "react-redux";
+import { accesstoken } from "../redux/tokenSlice";
 
 const AdminBookings = () => {
   const [bookings, setBookings] = useState([]);
@@ -10,12 +12,15 @@ const AdminBookings = () => {
   const [error, setError] = useState("");
   const [statusChanges, setStatusChanges] = useState({}); // bookingId -> status
   const [savingId, setSavingId] = useState(null);
+  const token = useSelector(accesstoken);
 
   useEffect(() => {
     const fetchAllBookings = async () => {
       try {
         // Fetch all bookings for admin
-        const res = await axios.get("http://localhost:5000/api/admin/bookings");
+        const res = await axios.get("http://localhost:5000/api/admin/bookings", {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
         if (res.data.success) {
           setBookings(res.data.bookings);
         }
@@ -31,8 +36,14 @@ const AdminBookings = () => {
 
   const handleDelete = async (bookingId) => {
     if (!window.confirm("Delete this booking? This will also delete its passengers.")) return;
+    if (!token) {
+      toast.error("Unauthorized: Please log in as admin");
+      return;
+    }
     try {
-      const res = await axios.delete(`http://localhost:5000/api/bookings/${bookingId}`);
+      const res = await axios.delete(`http://localhost:5000/api/bookings/${bookingId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (res.data.success) {
         setBookings((prev) => prev.filter((b) => b._id !== bookingId));
       } else {
@@ -51,18 +62,25 @@ const AdminBookings = () => {
   };
 
   const handleSaveStatus = async (booking, selectedOverride) => {
-    const selected = (selectedOverride || statusChanges[booking._id] || booking.status || "confirmed").toLowerCase();
-    if (!["confirmed", "cancelled"].includes(selected)) {
-      toast.error("Invalid status. Allowed: confirmed or cancelled");
+    const selected = (selectedOverride || statusChanges[booking._id] || booking.status || "pending").toLowerCase();
+    if (!["pending", "confirmed", "cancelled"].includes(selected)) {
+      toast.error("Invalid status. Allowed: pending, confirmed or cancelled");
       return;
     }
     // If no change, no-op
-    if ((booking.status || "confirmed").toLowerCase() === selected) return;
+    if ((booking.status || "pending").toLowerCase() === selected) return;
     try {
       setSavingId(booking._id);
-      const res = await axios.put(`http://localhost:5000/api/bookings/${booking._id}`, {
-        status: selected,
-      });
+      if (!token) {
+        toast.error("Unauthorized: Please log in as admin");
+        setSavingId(null);
+        return;
+      }
+      const res = await axios.put(
+        `http://localhost:5000/api/bookings/${booking._id}`,
+        { status: selected },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
       if (res.data.success) {
         setBookings((prev) =>
           prev.map((b) => {
@@ -156,9 +174,10 @@ const AdminBookings = () => {
                   <td className="px-4 py-2">
                     <select
                       className="border rounded px-2 py-1 text-sm"
-                      value={(statusChanges[b._id] ?? (b.status || "confirmed")).toLowerCase()}
+                      value={(statusChanges[b._id] ?? (b.status || "pending")).toLowerCase()}
                       onChange={(e) => handleStatusChange(b, e.target.value)}
                     >
+                      <option value="pending">Pending</option>
                       <option value="confirmed">Confirmed</option>
                       <option value="cancelled">Cancelled</option>
                     </select>
@@ -181,7 +200,7 @@ const AdminBookings = () => {
                   <td className="px-4 py-2 text-center space-x-2">
                     <button
                       onClick={() => handleSaveStatus(b)}
-                      disabled={savingId === b._id || ((statusChanges[b._id] ?? (b.status || "confirmed")).toLowerCase() === (b.status || "confirmed").toLowerCase())}
+                      disabled={savingId === b._id || ((statusChanges[b._id] ?? (b.status || "pending")).toLowerCase() === (b.status || "pending").toLowerCase())}
                       className={`px-3 py-1 rounded text-sm text-white ${savingId === b._id ? "bg-gray-400" : "bg-yellow-500 hover:bg-yellow-600"}`}
                     >
                       {savingId === b._id ? "Saving…" : "Save"}

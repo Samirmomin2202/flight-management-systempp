@@ -1,6 +1,6 @@
 import http from "../../api/http";
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import Cookies from "js-cookie";
 import { useDispatch } from "react-redux";
 import { getToken } from "../redux/tokenSlice";
@@ -17,6 +17,7 @@ const Login = () => {
   const [remember, setRemember] = useState(true);
   const [isPending, setIsPending] = useState(false);
   const navigateTo = useNavigate();
+  const location = useLocation();
   const dispatch = useDispatch();
 
   const handleOnChange = (event) => {
@@ -49,8 +50,10 @@ const Login = () => {
   dispatch(getUser(userData));
       getIsLoggedIn(true);
 
-      notify("Login successful!", "success");
-      navigateTo("/");
+  notify("Login successful!", "success");
+  const params = new URLSearchParams(location.search);
+  const redirect = params.get("redirect");
+  navigateTo(redirect || "/");
     } catch (error) {
       console.error("Login failed:", error);
   const msg = error.response?.data?.message || "Login failed. Please check credentials.";

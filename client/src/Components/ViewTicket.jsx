@@ -124,7 +124,7 @@ const ViewTicket = () => {
     }).format(price);
   };
 
-  const effectiveStatus = (statusInfo?.status || booking?.status || '').toString().toLowerCase();
+  const effectiveStatus = (statusInfo?.status || booking?.status || 'pending').toString().toLowerCase();
   const isCancelled = effectiveStatus === 'cancelled' || effectiveStatus === 'canceled';
 
   if (loading) {
@@ -209,6 +209,63 @@ const ViewTicket = () => {
     }
   };
 
+  // Generate the same PDF and email via backend
+  const handleSendEmail = async () => {
+    try {
+      if (!booking?._id) return;
+      if (isCancelled) {
+        toast.error("Cancelled ticket cannot be emailed.");
+        return;
+      }
+      const authToken = token || Cookies.get("token");
+      if (!authToken) {
+        toast.error("Please login to email your ticket");
+        navigate(`/login?redirect=${encodeURIComponent(`/ticket/${booking._id}`)}`);
+        return;
+      }
+      // Render all boarding pass cards into a single PDF
+      const cards = document.querySelectorAll(".boarding-pass-card");
+      if (!cards || cards.length === 0) {
+        toast.error("No boarding pass content available to email");
+        return;
+      }
+      const pdf = new jsPDF("landscape", "pt", "a4");
+      let first = true;
+      for (const el of cards) {
+        const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
+        const imgData = canvas.toDataURL("image/png");
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const pageHeight = pdf.internal.pageSize.getHeight();
+        const imgWidth = canvas.width;
+        const imgHeight = canvas.height;
+        const margin = 24;
+        const maxW = pageWidth - margin * 2;
+        const maxH = pageHeight - margin * 2;
+        const ratio = Math.min(maxW / imgWidth, maxH / imgHeight);
+        const renderW = imgWidth * ratio;
+        const renderH = imgHeight * ratio;
+        const x = (pageWidth - renderW) / 2;
+        const y = (pageHeight - renderH) / 2;
+        if (!first) pdf.addPage();
+        first = false;
+        pdf.addImage(imgData, "PNG", x, y, renderW, renderH);
+      }
+      const paxName = (passengers[0] ? `${passengers[0].firstName || ''}${passengers[0].lastName ? ' ' + passengers[0].lastName : ''}` : (booking.userEmail || 'Passenger')).replace(/\s+/g, '');
+      const fname = `BoardingPass_${paxName}_${booking.flightNo || 'Flight'}.pdf`;
+      const pdfBase64 = pdf.output('datauristring');
+
+      await axios.post(
+        `http://localhost:5000/api/bookings/${booking._id}/email`,
+        { to: booking.userEmail, filename: fname, pdfBase64 },
+        { headers: { Authorization: `Bearer ${authToken}` } }
+      );
+      toast.success("✅ Ticket sent successfully");
+    } catch (e) {
+      console.error("Email ticket error:", e);
+      toast.error(e.response?.data?.message || "Failed to send ticket");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4">
       <div className="max-w-4xl mx-auto">
@@ -238,7 +295,7 @@ const ViewTicket = () => {
                   const s = await axios.get(`http://localhost:5000/api/bookings/${booking._id}/status`);
                   if (s.data?.success) {
                     setStatusInfo(s.data);
-                    toast.success('Payment status refreshed');
+                    toast.success('Status refreshed');
                   }
                 } catch (e) {
                   toast.error('Failed to refresh status');
@@ -281,9 +338,21 @@ const ViewTicket = () => {
               </div>
             </div>
             <div className="mt-4 text-center">
-              <div className="text-sm opacity-90">
-                Status: <span className="font-semibold">{booking.status || "Confirmed"}</span>
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm border bg-white/20">
+                <span className="opacity-90">Status:</span>
+                <span className={`font-semibold uppercase ${
+                  effectiveStatus === 'confirmed' ? 'text-emerald-200' :
+                  effectiveStatus === 'cancelled' || effectiveStatus === 'canceled' ? 'text-rose-200' :
+                  'text-amber-200'
+                }`}>
+                  {effectiveStatus}
+                </span>
               </div>
+              {effectiveStatus === 'pending' && (
+                <div className="mt-2 text-xs text-amber-100/90">
+                  Awaiting admin confirmation. You’ll be able to download your boarding pass once it’s confirmed.
+                </div>
+              )}
             </div>
           </div>
 
@@ -417,7 +486,7 @@ const ViewTicket = () => {
                 Back to Bookings
               </Link>
               {/* Print Ticket removed */}
-              {!isCancelled ? (
+              {effectiveStatus === 'confirmed' ? (
                 <button
                   onClick={handleDownloadBoardingPass}
                   className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
@@ -427,12 +496,18 @@ const ViewTicket = () => {
               ) : (
                 <button
                   aria-disabled
-                  title="Cancelled tickets cannot be downloaded"
+                  title={isCancelled ? "Cancelled tickets cannot be downloaded" : "Boarding pass available after confirmation"}
                   className="bg-gray-300 text-gray-500 px-6 py-3 rounded-lg font-medium cursor-not-allowed"
                 >
-                  Download Disabled (Cancelled)
+                  {isCancelled ? 'Download Disabled (Cancelled)' : 'Download Disabled (Pending)'}
                 </button>
               )}
+             {/* ! <button
+                onClick={handleSendEmail}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+              >
+                Send via Email
+              </button> */}
               <Link
                 to={`/booked/${booking._id}`}
                 className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
@@ -443,7 +518,7 @@ const ViewTicket = () => {
           </div>
         </div>
         {/* Off-screen boarding pass render targets (one per passenger) - Styled like sample */}
-        <div id="boarding-pass-render" style={{ position: "absolute", left: "-20000px", top: 0, width: "1400px", background: "#f3f4f6", padding: "24px 0" }}>
+  <div id="boarding-pass-render" style={{ position: "absolute", left: "-20000px", top: 0, width: "1400px", background: "#f3f4f6", padding: "24px 0" }}>
           {(passengers.length > 0 ? passengers : [{ firstName: booking.userEmail || "Guest", lastName: "" }]).map((p, i) => {
             const dep = new Date(booking.departure);
             const arr = new Date(booking.arrival);
@@ -468,7 +543,7 @@ const ViewTicket = () => {
               >
                 {/* Red top header */}
                 <div style={{ background: "#ef4444", color: "#fff", padding: "14px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div style={{ fontWeight: 800, letterSpacing: "0.06em" }}>FLIGTH HUB4</div>
+                  <div style={{ fontWeight: 800, letterSpacing: "0.06em" }}>FLIGHT HUB</div>
                   <div style={{ fontWeight: 800, letterSpacing: "0.08em" }}>BOARDING PASS</div>
                 </div>
 
