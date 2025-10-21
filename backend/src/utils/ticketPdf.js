@@ -50,7 +50,7 @@ export async function generateTicketPdf(booking) {
         try {
           return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(Number(p));
         } catch {
-          return `₹${String(p)}`;
+          return `${String(p)}`;
         }
       };
 
@@ -60,6 +60,15 @@ export async function generateTicketPdf(booking) {
         if (s === "cancelled" || s === "canceled") return colors.danger;
         return colors.warning; // pending or others
       })();
+
+      // Helper: mask email for nicer display
+      const maskEmail = (em) => {
+        if (!em || typeof em !== "string") return "-";
+        const [user, domain] = em.split("@");
+        if (!domain) return em;
+        const u = user.length <= 3 ? user : user.slice(0, 3) + "***";
+        return `${u}@${domain}`;
+      };
 
       // Helper: shrink or truncate text to fit max width
       const fitText = (txt, startSize, maxWidth, font = "Helvetica-Bold", minSize = 9) => {
@@ -104,7 +113,8 @@ export async function generateTicketPdf(booking) {
   let y = headerHeight + 18;
       const cardX = 36;
       const cardW = pageWidth - 72;
-  const cardH = 260;
+  // Increased to provide enough space for the right-side contact panel
+  const cardH = 320;
   // subtle shadow layer
   doc.fillColor("#eef2ff").roundedRect(cardX, y + 2, cardW, cardH, 12).fill();
       doc.roundedRect(cardX, y, cardW, cardH, 10).fillAndStroke(colors.white, colors.gray200);
@@ -117,12 +127,16 @@ export async function generateTicketPdf(booking) {
   const rightW = cardW * 0.42 - pad;
 
       // Route
-  doc.fillColor(colors.slate700).fontSize(10).text("FROM", leftX, y + pad);
-  const fromFit = fitText(b.from || "-", 30, (leftW / 2) - 8, "Helvetica-Bold", 12);
-  doc.font("Helvetica-Bold").fontSize(fromFit.size).fillColor(colors.slate900).text(fromFit.text, leftX, doc.y - 2, { lineBreak: false });
-  doc.font("Helvetica").fillColor(colors.slate700).fontSize(10).text("TO", leftX + leftW / 2, y + pad);
-  const toFit = fitText(b.to || "-", 30, (leftW / 2) - 8, "Helvetica-Bold", 12);
-  doc.font("Helvetica-Bold").fontSize(toFit.size).fillColor(colors.slate900).text(toFit.text, leftX + leftW / 2, doc.y - 2, { lineBreak: false });
+    doc.fillColor(colors.slate700).fontSize(10).text("FROM", leftX, y + pad);
+  const fromFit = fitText(b.from || "-", 18, leftW - 8, "Helvetica-Bold", 10);
+  doc.font("Helvetica-Bold").fontSize(fromFit.size).fillColor(colors.slate900).text(fromFit.text, leftX, doc.y + 4, { width: leftW - 8 });
+    // Add extra vertical space between FROM and TO
+    let toLabelY = doc.y + 18;
+    doc.font("Helvetica").fillColor(colors.slate700).fontSize(10).text("TO", leftX, toLabelY);
+  const toFit = fitText(b.to || "-", 18, leftW - 8, "Helvetica-Bold", 10);
+  doc.font("Helvetica-Bold").fontSize(toFit.size).fillColor(colors.slate900).text(toFit.text, leftX, doc.y + 4, { width: leftW - 8 });
+    // Reduce vertical space after TO before DEPARTURE
+    y = doc.y + 8;
 
       // Times
     const timesY = y + 90;
@@ -165,18 +179,13 @@ export async function generateTicketPdf(booking) {
   doc.fillColor(colors.white).font("Helvetica-Bold").fontSize(11).text(pillText, rightX + pad + 12, pillY + 7, { width: pillW - 24, align: "left" });
   doc.font("Helvetica");
 
-  // Contact
-  doc.fillColor(colors.slate700).fontSize(10).text("BOOKED BY", rightX + pad, pillY + 38);
-  doc.fillColor(colors.slate900).fontSize(11).text(b.userEmail || "-", rightX + pad, doc.y + 3, { width: rightW - pad * 2 });
-
-  // Issued on
-  const issuedY = doc.y + 12;
-  doc.fillColor(colors.slate700).fontSize(10).text("ISSUED ON", rightX + pad, issuedY);
-  doc.fillColor(colors.slate900).fontSize(11).text(formatDateFancy(b.bookingDate || new Date()), rightX + pad, doc.y + 2, { width: rightW - pad * 2 });
+  // Contact panel moved below Passengers to avoid any collision with right-side content
 
     // Passengers table
       y = y + cardH + 20;
-  doc.fillColor(colors.slate900).font("Helvetica-Bold").fontSize(14).text("Passengers", cardX, y);
+  const paxCount = Array.isArray(passengers) ? passengers.length : (passengers ? 1 : 0);
+  const paxHeading = `Passengers${paxCount ? ` (${paxCount})` : ''}`;
+  doc.fillColor(colors.slate900).font("Helvetica-Bold").fontSize(14).text(paxHeading, cardX, y);
   doc.font("Helvetica");
       y += 10;
 
@@ -231,13 +240,36 @@ export async function generateTicketPdf(booking) {
         });
       }
 
+      // Contact panel placed AFTER passengers section to avoid any collision
+      {
+        const panelX = cardX;
+        const panelW = cardW;
+        const textX = panelX + 10;
+        const textW = panelW - 20;
+        const byLine = `Booked by: ${b.userEmail || '-'}`;
+        const issuedRaw = formatDateFancy(b.bookingDate || new Date());
+        const issuedClean = typeof issuedRaw === 'string' ? issuedRaw.replace(/\bAM\b/g, 'am').replace(/\bPM\b/g, 'pm') : issuedRaw;
+        const issuedLine = `Issued on: ${issuedClean}`;
+        doc.font('Helvetica').fontSize(10);
+        const byH = doc.heightOfString(byLine, { width: textW });
+        const issuedH = doc.heightOfString(issuedLine, { width: textW });
+        const panelH = 14 + byH + 6 + issuedH + 6;
+        ensureSpace(panelH + 16);
+        // small top margin before panel
+        y += 8;
+        doc.roundedRect(panelX, y, panelW, panelH, 8).fillAndStroke(colors.gray100, colors.gray200);
+        doc.fillColor(colors.slate700).fontSize(10).text(byLine, textX, y + 8, { width: textW });
+        doc.fillColor(colors.slate700).fontSize(10).text(issuedLine, textX, y + 8 + byH + 6, { width: textW });
+        y += panelH + 12;
+      }
+
       // Per-passenger boarding pass stubs with QR (realistic feel)
       const pnr = (b._id ? String(b._id) : "").slice(-6).toUpperCase();
       const boardingTime = (() => {
         try { return new Date(new Date(b.departure).getTime() - 45 * 60000); } catch { return null; }
       })();
 
-      y += 24;
+  y += 24;
   doc.fillColor(colors.slate900).font("Helvetica-Bold").fontSize(14).text("Boarding Pass", cardX, y);
   doc.font("Helvetica");
       y += 12;
@@ -270,20 +302,27 @@ export async function generateTicketPdf(booking) {
         doc.fillColor(colors.slate700).fontSize(9).text("TO", lx + 160, routeY);
         doc.fillColor(colors.slate900).fontSize(20).text(b.to || "-", lx + 160, doc.y + 2);
 
-        // Row of meta badges
+        // Row(s) of meta badges (kept within left section to avoid QR area)
         const metaY = routeY + 44;
-        const badge = (label, val, bx) => {
-          doc.fillColor(colors.slate700).fontSize(8).text(label, bx, metaY);
-          doc.fillColor(colors.slate900).fontSize(12).text(val || "-", bx, doc.y + 2);
+        const leftAreaW = (rx - lx) - 16; // padding to stay clear of tear line
+        const gap = 16;
+        const colW = Math.floor((leftAreaW - gap * 2) / 3);
+        const colX = (i) => lx + i * (colW + gap);
+        const badge = (label, val, bx, by) => {
+          doc.fillColor(colors.slate700).fontSize(8).text(label, bx, by, { width: colW });
+          doc.fillColor(colors.slate900).fontSize(12).text(val || "-", bx, by + 12, { width: colW });
         };
-        badge("FLIGHT", b.flightNo, lx);
-        badge("DATE", formatDateFancy(b.departure).split(",")[0], lx + 110);
-        badge("BOARDING", boardingTime ? formatDateFancy(boardingTime).split(",")[1]?.trim() : "—", lx + 220);
-        badge("SEAT", p.seat || "—", lx + 330);
-        badge("GATE", b.gate || "—", lx + 420);
-        badge("PNR", pnr || "—", lx + 500);
+        // First row
+        badge("FLIGHT", b.flightNo, colX(0), metaY);
+        badge("DATE", formatDateFancy(b.departure).split(",")[0], colX(1), metaY);
+        badge("BOARDING", boardingTime ? formatDateFancy(boardingTime).split(",")[1]?.trim() : "—", colX(2), metaY);
+        // Second row
+        const metaY2 = metaY + 28;
+        badge("SEAT", p.seat || "—", colX(0), metaY2);
+        badge("GATE", b.gate || "—", colX(1), metaY2);
+        badge("PNR", pnr || "—", colX(2), metaY2);
 
-        // Right tear stub with QR
+        // Right tear stub with QR (centered), with no additional details
         const payload = `FMS:${b._id || ""}:${p.seat || ""}`;
         let qrBuf = null;
         try {
@@ -291,30 +330,16 @@ export async function generateTicketPdf(booking) {
           const base64 = dataUrl.split(",")[1];
           qrBuf = Buffer.from(base64, "base64");
         } catch {}
-        // Stub header
-        doc.rect(rx + 6, y + 8, stubWidth * 0.27 - 18, 22).fill(colors.primary);
-        doc.fillColor(colors.white).fontSize(10).text("BOARDING PASS", rx + 10, y + 13, { width: stubWidth * 0.27 - 24, align: "center" });
-        // QR or fallback
+        // QR only (no text next to it)
         const qrSize = 108;
-        const qrX = rx + 18;
-        const qrY = y + 34;
+        const qrX = rx + (stubRightW - qrSize) / 2;
+        const qrY = y + (stubHeight - qrSize) / 2;
         if (qrBuf) {
           doc.image(qrBuf, qrX, qrY, { width: qrSize, height: qrSize, fit: [qrSize, qrSize] });
         } else {
           doc.fillColor(colors.slate500).rect(qrX, qrY, qrSize, qrSize).stroke(colors.gray200);
           doc.fillColor(colors.slate500).fontSize(8).text("QR unavailable", qrX, qrY + qrSize / 2 - 6, { width: qrSize, align: "center" });
         }
-        // Stub details
-        const detailsBaseX = qrX + qrSize + 12;
-        const detailsW = (cardX + stubWidth) - detailsBaseX - 16;
-        const row1Y = y + 40;
-        doc.fillColor(colors.slate700).fontSize(8).text("NAME", detailsBaseX, row1Y, { width: detailsW });
-        const nameFit = fitText(paxName, 10, detailsW, "Helvetica-Bold", 8);
-        doc.fillColor(colors.slate900).font("Helvetica-Bold").fontSize(nameFit.size).text(nameFit.text, detailsBaseX, row1Y + 12, { width: detailsW, ellipsis: true });
-        doc.font("Helvetica").fillColor(colors.slate700).fontSize(8).text("FLIGHT", detailsBaseX, row1Y + 32, { width: detailsW });
-        doc.fillColor(colors.slate900).fontSize(10).text(b.flightNo || "-", detailsBaseX, row1Y + 42, { width: detailsW });
-        doc.fillColor(colors.slate700).fontSize(8).text("SEAT", detailsBaseX, row1Y + 60, { width: detailsW });
-        doc.fillColor(colors.slate900).font("Helvetica-Bold").fontSize(12).text(p.seat || "—", detailsBaseX, row1Y + 70, { width: detailsW });
 
         y += stubHeight + 16;
       };
