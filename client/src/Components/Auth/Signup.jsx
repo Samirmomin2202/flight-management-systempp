@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import http from "../../api/http";
 import logo from "../../Assets/flight-logo.png";
+import fly from "../../Assets/fly.jpeg";
 
 const Signup = () => {
   const navigate = useNavigate();
@@ -60,43 +61,11 @@ const Signup = () => {
   };
 
   return (
-  <div className="relative min-h-screen flex items-center justify-center p-4">
-      {/* Page background: solid blue + your blue-line image from public/auth-bg.jpg */}
-      <div className="absolute inset-0 -z-10 bg-[#0EA5E9]" />
-      <div
-        className="absolute inset-0 -z-10 bg-no-repeat bg-cover bg-center opacity-90"
-        style={{ backgroundImage: "url('/auth-bg.jpg')" }}
-        aria-hidden
-      />
-      {/* Top flight paths overlay */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-0">
-        <svg viewBox="0 0 1440 160" className="w-full h-40 text-white/80" preserveAspectRatio="none">
-          <path d="M0,100 C200,20 400,140 640,60 S1040,120 1440,40" stroke="currentColor" strokeWidth="3" strokeDasharray="10 10" fill="none" />
-          <path d="M0,130 C240,60 520,140 820,80 S1200,140 1440,90" stroke="currentColor" strokeWidth="2" strokeDasharray="6 10" opacity="0.6" fill="none" />
-          {/* plane icons */}
-          <text x="640" y="62" fontSize="16" fill="white" opacity="0.95">✈</text>
-          <text x="860" y="82" fontSize="14" fill="white" opacity="0.85">✈</text>
-          <text x="1200" y="92" fontSize="14" fill="white" opacity="0.8">✈</text>
-        </svg>
-      </div>
+    <div className="min-h-screen flex items-center justify-center p-4 bg-white">
   <div className="relative z-10 w-full max-w-5xl bg-white rounded-2xl shadow-2xl overflow-hidden grid md:grid-cols-2">
-        {/* Left: Illustration & testimonial */}
-        <div className="relative hidden md:block">
-          <div className="absolute inset-0 m-6 rounded-2xl overflow-hidden bg-blue-900">
-            <div className="absolute inset-0 bg-cover bg-center opacity-90" style={{ backgroundImage: "url('/auth-hero.jpg')" }} />
-            <div className="absolute inset-0 bg-blue-900/60" />
-            <div className="relative h-full flex flex-col justify-end p-8 text-white">
-              <p className="text-lg md:text-xl font-semibold max-w-md">Join thousands of travelers booking smarter with FlightHub.</p>
-              <div className="mt-5 flex items-center gap-3">
-                <img src={logo} alt="avatar" className="h-10 w-10 rounded-full bg-white/90 p-1" />
-                <div>
-                  <div className="text-sm font-semibold">A happy traveler</div>
-                  <div className="text-xs text-white/80">5-star experience</div>
-                </div>
-              </div>
-              <div className="mt-3 text-amber-300">★★★★★</div>
-            </div>
-          </div>
+        {/* Left: Card effect image */}
+        <div className="hidden md:block relative">
+          <img src={fly} alt="Flight" className="object-cover w-full h-full" style={{ minHeight: 400 }} />
         </div>
 
         {/* Right: Form */}
@@ -161,8 +130,8 @@ const Signup = () => {
 
         {/* Right side illustration handled in the left column on desktop */}
       </div>
-      {/* Bottom skyline overlay */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-0">
+      Bottom skyline overlay
+      {/* <div className="pointer-events-none absolute inset-x-0 bottom-0 z-0">
         <svg viewBox="0 0 1440 140" className="w-full h-28 text-white/90" preserveAspectRatio="none">
           <rect x="20" y="60" width="30" height="80" fill="currentColor" opacity="0.9" />
           <rect x="70" y="40" width="24" height="100" fill="currentColor" opacity="0.85" />
@@ -192,7 +161,7 @@ const Signup = () => {
           <rect x="1260" y="50" width="24" height="90" fill="currentColor" opacity="0.86" />
           <rect x="1290" y="85" width="50" height="55" fill="currentColor" opacity="0.9" />
         </svg>
-      </div>
+      </div> */}
     </div>
   );
 };

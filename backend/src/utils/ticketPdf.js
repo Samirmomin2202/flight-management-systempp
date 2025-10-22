@@ -131,7 +131,7 @@ export async function generateTicketPdf(booking) {
   const fromFit = fitText(b.from || "-", 18, leftW - 8, "Helvetica-Bold", 10);
   doc.font("Helvetica-Bold").fontSize(fromFit.size).fillColor(colors.slate900).text(fromFit.text, leftX, doc.y + 4, { width: leftW - 8 });
     // Add extra vertical space between FROM and TO
-    let toLabelY = doc.y + 18;
+    let toLabelY = doc.y + 8;
     doc.font("Helvetica").fillColor(colors.slate700).fontSize(10).text("TO", leftX, toLabelY);
   const toFit = fitText(b.to || "-", 18, leftW - 8, "Helvetica-Bold", 10);
   doc.font("Helvetica-Bold").fontSize(toFit.size).fillColor(colors.slate900).text(toFit.text, leftX, doc.y + 4, { width: leftW - 8 });
