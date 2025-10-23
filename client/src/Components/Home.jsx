@@ -13,6 +13,7 @@ import { listSlides } from "../api/slidesApi";
 
 import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
+//import { image } from "html2canvas/dist/types/css/types/image";
 
 const Home = () => {
   const token = useSelector(accesstoken);
