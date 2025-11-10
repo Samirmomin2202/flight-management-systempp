@@ -247,24 +247,24 @@ const Booked = () => {
         </div>
 
         {/* Buttons */}
-        <div className="flex justify-center gap-4 mt-8 flex-wrap">
+        <div className="flex flex-col sm:flex-row justify-center gap-3 mt-8 items-center">
           <button
             onClick={handleCancel}
-            className="bg-white border-2 border-red-500 text-red-500 hover:bg-red-50 px-6 py-2 rounded-xl shadow transition font-medium"
+            className="w-full sm:w-auto bg-white border-2 border-red-500 text-red-500 hover:bg-red-50 px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 font-medium hover:scale-105"
           >
             Cancel Ticket
           </button>
           {(!booking.paymentStatus || booking.paymentStatus === "pending") && (
             <button
               onClick={() => toast.info("Please complete payment during booking via Razorpay.")}
-              className="bg-yellow-500 hover:bg-yellow-600 text-white px-6 py-2 rounded-xl shadow transition font-medium"
+              className="w-full sm:w-auto bg-yellow-500 hover:bg-yellow-600 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 font-medium hover:scale-105"
             >
               Pay Now
             </button>
           )}
           <Link
             to={`/ticket/${booking._id}`}  // Use the new enhanced ticket view
-            className="bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white px-6 py-2 rounded-xl shadow transition font-medium flex items-center gap-2"
+            className="w-full sm:w-auto bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 font-medium flex items-center justify-center gap-2 hover:scale-105"
           >
             <Eye /> View Enhanced Ticket
           </Link>

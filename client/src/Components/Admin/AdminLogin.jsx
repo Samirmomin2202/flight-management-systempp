@@ -11,14 +11,18 @@ const AdminLogin = () => {
   const login = useAdminStore((state) => state.login);
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const success = login(email, password);
-    if (success) {
-      toast.success("✅ Login successful!");
-      setTimeout(() => navigate("/admin/dashboard"), 800);
-    } else {
-      toast.error("❌ Invalid email or password!");
+    try {
+      const result = await login(email, password);
+      if (result.success) {
+        toast.success("✅ Login successful!");
+        setTimeout(() => navigate("/admin/dashboard"), 800);
+      } else {
+        toast.error(`❌ ${result.message || "Invalid email or password!"}`);
+      }
+    } catch (error) {
+      toast.error("❌ Login failed. Please try again.");
     }
   };
 

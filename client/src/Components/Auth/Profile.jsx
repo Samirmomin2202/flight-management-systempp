@@ -139,11 +139,11 @@ const Profile = () => {
         <div className="md:w-1/2 p-10 flex flex-col justify-between bg-white">
           {isEditing ? (
             <form onSubmit={onSave}>
-              <div className="flex items-center justify-between mb-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-3">
                 <h2 className="text-3xl font-extrabold text-indigo-800 tracking-tight">Edit Profile</h2>
-                <div className="flex gap-2">
-                  <button type="button" onClick={onCancel} className="px-3 py-2 rounded border border-slate-300 text-slate-700 hover:bg-slate-50">Cancel</button>
-                  <button type="submit" disabled={saving} className={`px-4 py-2 rounded text-white ${saving ? 'bg-gray-400' : 'bg-emerald-600 hover:bg-emerald-700'}`}>{saving ? 'Saving…' : 'Save Changes'}</button>
+                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                  <button type="button" onClick={onCancel} className="w-full sm:w-auto px-3 py-2 rounded border border-slate-300 text-slate-700 hover:bg-slate-50">Cancel</button>
+                  <button type="submit" disabled={saving} className={`w-full sm:w-auto px-4 py-2 rounded text-white ${saving ? 'bg-gray-400' : 'bg-emerald-600 hover:bg-emerald-700'}`}>{saving ? 'Saving…' : 'Save Changes'}</button>
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

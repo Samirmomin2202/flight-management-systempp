@@ -1,0 +1,92 @@
+{
+  "name": "boarding-pass-dependencies",
+  "description": "Additional dependencies for professional boarding pass system",
+  "version": "2.0.0",
+  "instructions": {
+    "backend": "cd backend && npm install pdfkit qrcode",
+    "frontend": "cd client && npm install qrcode.react html2canvas jspdf"
+  },
+  "dependencies": {
+    "backend": {
+      "pdfkit": "^0.14.0",
+      "qrcode": "^1.5.3"
+    },
+    "frontend": {
+      "qrcode.react": "^3.1.0",
+      "html2canvas": "^1.4.1",
+      "jspdf": "^2.5.1"
+    }
+  },
+  "features": [
+    "IATA M1 barcode format QR codes",
+    "Multi-passenger support with individual boarding cards",
+    "Professional airline branding and colors",
+    "Print-ready PDF export (300 DPI)",
+    "Email attachment integration (backend)",
+    "Browser download functionality (frontend)",
+    "Tear-off perforation lines",
+    "Responsive Tailwind CSS design"
+  ],
+  "filesCreated": [
+    "backend/src/utils/ticketPdf.js (enhanced)",
+    "client/src/Components/BoardingPassGenerator.jsx (new)",
+    "client/src/BoardingPassExample.jsx (new)",
+    "BOARDING_PASS_DOCUMENTATION.md (new)",
+    "QUICK_START.md (new)"
+  ],
+  "qrFormat": {
+    "standard": "IATA Aztec M1 Barcode",
+    "structure": "M1<NAME><PNR> <FROM><TO><AIRLINE><FLIGHT><DAY><SEAT><SEQ><STATUS>",
+    "example": "M1DOE/JOHN          ABC123 BOMDELELFH50133401234A00010",
+    "errorCorrection": "M (Medium - 15%)"
+  },
+  "colorPalette": {
+    "airlineBlue": "#003DA5",
+    "airlineDark": "#002366",
+    "airlineLight": "#E8F4FF",
+    "success": "#10B981",
+    "danger": "#EF4444",
+    "warning": "#F59E0B"
+  },
+  "printSpecs": {
+    "format": "A4",
+    "dimensions": "210mm × 297mm",
+    "margins": "12.7mm (0.5 inch)",
+    "dpi": "300 (frontend), vector (backend)",
+    "colorSpace": "RGB",
+    "fileFormat": "PDF"
+  },
+  "usage": {
+    "backend": "await generateTicketPdf(bookingWithPassengers)",
+    "frontend": "<BoardingPassGenerator bookingData={data} />",
+    "emailAttachment": "content: pdfBuffer, contentType: 'application/pdf'",
+    "browserDownload": "exportToPDF(individual=false)"
+  },
+  "dataSchema": {
+    "required": [
+      "bookingId",
+      "pnr",
+      "flight.number",
+      "flight.fromCode",
+      "flight.toCode",
+      "departure",
+      "passengers[]"
+    ],
+    "optional": [
+      "gate",
+      "boarding",
+      "cabinClass",
+      "airline.logo"
+    ]
+  },
+  "nextSteps": [
+    "Install dependencies with commands above",
+    "Restart backend server (node server.js)",
+    "Test backend: POST /api/bookings/:id/confirm",
+    "Add React route: /boarding-pass",
+    "Customize airline branding (colors, logo, name)",
+    "Test PDF on physical printer",
+    "Add to booking confirmation flow"
+  ],
+  "safetyNote": "This system is for LEGITIMATE use only. Do not use for fraud, impersonation, or unauthorized airport access. Always purchase valid tickets through authorized channels."
+}

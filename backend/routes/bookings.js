@@ -3,6 +3,7 @@ import express from "express";
 import jwt from "jsonwebtoken";
 import Booking from "../models/Booking.js";
 import Passenger from "../models/Passenger.js";
+import User from "../src/models/user.model.js";
 import { sendEmail } from "../src/utils/mailer.js";
 import { generateTicketPdf } from "../src/utils/ticketPdf.js";
 // Removed rich HTML email for boarding pass to keep email simple with a single PDF attachment
@@ -190,14 +191,32 @@ router.put("/:id", auth, async (req, res) => {
     };
 
     // Email notifications based on status changes
+    // Get user's registered email from User model, not just from booking
+    let emailSent = false;
+    let emailError = null;
+    let recipientEmail = null;
+    
     try {
-      const recipient = bookingWithPassengers.userEmail;
-      if (recipient) {
+      // First, try to get the user's registered email from User model
+      if (bookingWithPassengers.userEmail) {
+        const user = await User.findOne({ email: bookingWithPassengers.userEmail }).select("email");
+        if (user && user.email) {
+          recipientEmail = user.email; // Use registered email from User model
+          console.log(`📧 Found registered user email: ${recipientEmail} for booking ${bookingWithPassengers._id}`);
+        } else {
+          // Fallback to booking email if user not found in User model
+          recipientEmail = bookingWithPassengers.userEmail;
+          console.log(`⚠️ User not found in database, using booking email: ${recipientEmail}`);
+        }
+      }
+      
+      if (recipientEmail && update.status) {
         if (update.status === "confirmed") {
           // Generate a single PDF attachment and send a simple email body
+          console.log(`📧 Sending confirmation email with PDF to ${recipientEmail} for booking ${bookingWithPassengers._id}`);
           const pdfBuffer = await generateTicketPdf(bookingWithPassengers);
-          await sendEmail({
-            to: recipient,
+          const emailResult = await sendEmail({
+            to: recipientEmail,
             subject: `Your ticket is confirmed - ${bookingWithPassengers.flightNo || "Flight"}`,
             text: `Dear customer,\n\nYour booking (${bookingWithPassengers._id}) has been confirmed. Your boarding pass is attached as a PDF.\n\nRoute: ${bookingWithPassengers.from} → ${bookingWithPassengers.to}\nDeparture: ${new Date(bookingWithPassengers.departure).toLocaleString("en-IN")}\n\nThank you for choosing us.`,
             attachments: [
@@ -208,23 +227,124 @@ router.put("/:id", auth, async (req, res) => {
               },
             ],
           });
+          
+          if (emailResult.error) {
+            console.error(`❌ Failed to send confirmation email to ${recipientEmail}:`, emailResult.error);
+            emailError = emailResult.error;
+          } else if (emailResult.skipped) {
+            console.warn(`⚠️ Email skipped (${emailResult.reason || 'not configured'}) for ${recipientEmail}`);
+            emailError = `Email provider not configured: ${emailResult.reason || 'Please configure EMAIL_PROVIDER in .env'}`;
+          } else {
+            emailSent = true;
+            console.log(`✅ Confirmation email with PDF sent successfully to ${recipientEmail} via ${emailResult.provider || 'LOCAL'}`);
+          }
         } else if (update.status === "cancelled") {
           // Send cancellation message only
-          await sendEmail({
-            to: recipient,
+          console.log(`📧 Sending cancellation email to ${recipientEmail} for booking ${bookingWithPassengers._id}`);
+          const emailResult = await sendEmail({
+            to: recipientEmail,
             subject: `Your booking was cancelled - ${bookingWithPassengers.flightNo || "Flight"}`,
             text: `Dear customer,\n\nYour booking (${bookingWithPassengers._id}) has been cancelled. No ticket will be issued.\n\nIf this was unexpected, please contact support.`,
           });
+          
+          if (emailResult.error) {
+            console.error(`❌ Failed to send cancellation email to ${recipientEmail}:`, emailResult.error);
+            emailError = emailResult.error;
+          } else if (emailResult.skipped) {
+            console.warn(`⚠️ Email skipped (${emailResult.reason || 'not configured'}) for ${recipientEmail}`);
+            emailError = `Email provider not configured: ${emailResult.reason || 'Please configure EMAIL_PROVIDER in .env'}`;
+          } else {
+            emailSent = true;
+            console.log(`✅ Cancellation email sent successfully to ${recipientEmail} via ${emailResult.provider || 'LOCAL'}`);
+          }
         }
+      } else if (update.status && !recipientEmail) {
+        console.warn(`⚠️ No email address found for booking ${bookingWithPassengers._id}, cannot send ${update.status} notification`);
       }
     } catch (mailErr) {
-      console.error("Email send error:", mailErr);
-      // Don't fail the update if email fails
+      emailError = mailErr.message;
+      console.error("❌ Email send error:", mailErr);
+      // Don't fail the update if email fails, but log it
     }
 
     res.json({ success: true, booking: bookingWithPassengers });
   } catch (err) {
     console.error("Error updating booking:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ✅ Dedicated confirm endpoint (simpler for admin UI)
+router.post('/:id/confirm', auth, async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id);
+    if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
+    if (booking.status === 'cancelled') {
+      return res.status(400).json({ success: false, message: 'Cannot confirm a cancelled booking' });
+    }
+    if (booking.status === 'confirmed') {
+      return res.json({ success: true, message: 'Already confirmed', booking });
+    }
+
+    booking.status = 'confirmed';
+    await booking.save();
+    const passengers = await Passenger.find({ bookingId: booking._id });
+    const enriched = { ...booking.toObject(), passengers };
+
+    let emailStatus = 'skipped';
+    let emailErrorMsg = null;
+    try {
+      if (booking.userEmail) {
+        // Get user's registered email from User model
+        let recipientEmail = booking.userEmail;
+        const user = await User.findOne({ email: booking.userEmail }).select("email");
+        if (user && user.email) {
+          recipientEmail = user.email; // Use registered email from User model
+          console.log(`📧 Found registered user email: ${recipientEmail} for booking ${booking._id}`);
+        } else {
+          console.log(`⚠️ User not found in database, using booking email: ${recipientEmail}`);
+        }
+        
+        const pdfBuffer = await generateTicketPdf(enriched);
+        const sendResult = await sendEmail({
+          to: recipientEmail,
+          subject: `Your ticket is confirmed - ${booking.flightNo || 'Flight'}`,
+          text: `Dear customer,\n\nYour booking (${booking._id}) has been confirmed. Boarding pass attached.\nRoute: ${booking.from} → ${booking.to}\nDeparture: ${new Date(booking.departure).toLocaleString('en-IN')}\n\nThank you for choosing us.`,
+          attachments: [{
+            filename: `BoardingPass-${booking.flightNo || 'Flight'}-${String(booking._id).slice(-6)}.pdf`,
+            content: pdfBuffer,
+            contentType: 'application/pdf'
+          }]
+        });
+        
+        if (sendResult.error) {
+          emailStatus = 'error';
+          emailErrorMsg = sendResult.error;
+          console.error(`❌ Failed to send confirmation email to ${recipientEmail}:`, sendResult.error);
+        } else if (sendResult.skipped) {
+          emailStatus = 'skipped';
+          emailErrorMsg = sendResult.reason || 'Email provider not configured';
+          console.warn(`⚠️ Email skipped (${emailErrorMsg}) for ${recipientEmail}`);
+        } else {
+          emailStatus = 'sent';
+          console.log(`✅ Confirmation email sent to ${recipientEmail} via ${sendResult.provider || 'LOCAL'}`);
+        }
+      }
+    } catch (e) {
+      console.error('Confirm email error:', e);
+      emailStatus = 'error';
+      emailErrorMsg = e.message;
+    }
+
+    res.json({ 
+      success: true, 
+      message: 'Booking confirmed', 
+      emailStatus, 
+      emailError: emailErrorMsg,
+      booking: enriched 
+    });
+  } catch (err) {
+    console.error('Error confirming booking:', err);
     res.status(500).json({ success: false, message: err.message });
   }
 });

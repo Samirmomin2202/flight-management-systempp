@@ -8,9 +8,11 @@ import passengersRoutes from "./routes/passengers.js";
 import adminRoutes from "./routes/admin.js";
 import userRoute from "./src/apis/users/user.route.js";
 import contactRoutes from "./routes/contact.js";
-// import paymentsRoutes from "./routes/payments.js";
+import paymentsRoutes from "./routes/payments.js";
 import razorpayRoutes from "./routes/razorpay.js";
 import slidesRoutes from "./routes/slides.js";
+import aiRoutes from "./routes/ai.js";
+import { sendEmail, emailProviderInfo } from "./src/utils/mailer.js";
 import path from "path";
 import { fileURLToPath } from "url";
 import connectDb from "./src/config/db.config.js";
@@ -36,15 +38,39 @@ app.get('/api/test', (req, res) => {
   res.json({ ok: true, time: new Date().toISOString() });
 });
 
+// Email diagnostic route (no auth, disable in production or guard later)
+app.get('/api/email/test', async (req, res) => {
+  const info = emailProviderInfo();
+  // Quick provider snapshot
+  if (req.query.info === 'true') {
+    return res.json({ ok: true, info });
+  }
+  const to = req.query.to || process.env.TEST_EMAIL_TO || info?.provider === 'SMTP' ? emailConfig?.auth?.user : undefined;
+  if (!to) {
+    return res.status(400).json({ ok: false, message: 'Provide ?to=recipient@example.com or set TEST_EMAIL_TO in env' });
+  }
+  const result = await sendEmail({
+    to,
+    subject: 'Email test (' + info.provider + ')',
+    text: 'Plain text test at ' + new Date().toISOString(),
+    html: '<strong>Email test</strong><br/>' + new Date().toISOString()
+  });
+  if (result.error) {
+    return res.status(500).json({ ok: false, provider: info.provider, error: result.error });
+  }
+  res.json({ ok: true, provider: info.provider, result });
+});
+
 // Routes
 app.use("/api/flights", flightsRoutes);
 app.use("/api/bookings", bookingsRoutes);
 app.use("/api/passengers", passengersRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/contact", contactRoutes);
-// app.use("/api/payments", paymentsRoutes);
+app.use("/api/payments", paymentsRoutes);
 app.use("/api/razorpay", razorpayRoutes);
 app.use("/api/slides", slidesRoutes);
+app.use("/api/ai", aiRoutes);
 // User routes (signup/login)
 app.use("/api/user", userRoute);
 app.use("/user", userRoute);

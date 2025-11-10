@@ -156,9 +156,9 @@ export default function SeatBooking() {
       </div>
 
       {/* Actions */}
-      <div className="mt-6 flex gap-3">
-        <button onClick={confirmBooking} className="px-4 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white">Confirm Booking</button>
-        <button onClick={cancelBooking} className="px-4 py-2 rounded border border-gray-300 hover:bg-gray-50">Cancel Booking</button>
+      <div className="mt-6 flex flex-col sm:flex-row gap-3">
+        <button onClick={confirmBooking} className="w-full sm:w-auto px-6 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">Confirm Booking</button>
+        <button onClick={cancelBooking} className="w-full sm:w-auto px-6 py-3 rounded-lg border-2 border-gray-300 hover:bg-gray-50 hover:border-gray-400 font-medium transition-all duration-300 hover:scale-105">Cancel Booking</button>
       </div>
 
       <div className="mt-3 text-xs text-slate-500">Data persists in this browser via localStorage and syncs across tabs using the storage event.</div>

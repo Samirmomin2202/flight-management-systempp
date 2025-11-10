@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import adminHttp from "../../api/adminHttp";
 import { PlaneTakeoff, PlaneLanding } from "lucide-react"; // Flight icons
 import AdminSidebar from "./AdminSidebar";
 
@@ -18,12 +18,10 @@ const AdminFlights = () => {
   });
   const [editId, setEditId] = useState(null);
 
-  const API_URL = "http://localhost:5000/api/flights";
-
   // Fetch all flights
   const fetchFlights = async () => {
     try {
-      const res = await axios.get(API_URL);
+      const res = await adminHttp.get("/flights");
       if (res.data.success) setFlights(res.data.flights);
     } catch (err) {
       console.error("Error fetching flights:", err);
@@ -84,9 +82,9 @@ const AdminFlights = () => {
     try {
       let res;
       if (editId) {
-        res = await axios.put(`${API_URL}/${editId}`, payload);
+        res = await adminHttp.put(`/flights/${editId}`, payload);
       } else {
-        res = await axios.post(API_URL, payload);
+        res = await adminHttp.post("/flights", payload);
       }
       if (res.data.success) {
         alert(res.data.message);
@@ -114,10 +112,11 @@ const AdminFlights = () => {
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this flight?")) return;
     try {
-      await axios.delete(`${API_URL}/${id}`);
+      await adminHttp.delete(`/flights/${id}`);
       fetchFlights();
     } catch (err) {
       console.error("Delete error:", err);
+      alert(err.response?.data?.message || "Delete failed");
     }
   };
 
@@ -238,19 +237,21 @@ const AdminFlights = () => {
                     </td>
                     <td className="p-3">{f.seatCapacity ?? 48}</td>
                     <td className="p-3">{f.cabinClass || "Economy"}</td>
-                    <td className="p-3 flex gap-2">
-                      <button
-                        className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded-lg shadow"
-                        onClick={() => handleEdit(f)}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-lg shadow"
-                        onClick={() => handleDelete(f._id)}
-                      >
-                        Delete
-                      </button>
+                    <td className="p-3">
+                      <div className="flex flex-col sm:flex-row items-center gap-2">
+                        <button
+                          className="w-full sm:w-auto bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 font-medium"
+                          onClick={() => handleEdit(f)}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 font-medium"
+                          onClick={() => handleDelete(f._id)}
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))

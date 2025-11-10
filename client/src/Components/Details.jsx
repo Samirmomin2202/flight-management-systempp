@@ -1,5 +1,5 @@
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faCheck } from "@fortawesome/free-solid-svg-icons";
+import { faCheck, faPlane } from "@fortawesome/free-solid-svg-icons";
 import React, { useEffect } from "react";
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -633,6 +633,8 @@ const Details = () => {
   const paxCount = Number(passengers || 1);
   
   const [bookingDetails, setBookingDetails] = useState(null);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [showPaymentSummary, setShowPaymentSummary] = useState(false);
   const navigateTo = useNavigate();
   
   console.log("🔍 Debug - Details component booking ID:", id);
@@ -789,6 +791,22 @@ const Details = () => {
       const redirect = encodeURIComponent(window.location.pathname + (window.location.search || ""));
       return navigateTo(`/login?redirect=${redirect}`);
     }
+    
+    // Show payment summary modal first
+    setShowPaymentSummary(true);
+  };
+  
+  const handleConfirmPayment = async () => {
+    setShowPaymentSummary(false);
+    setIsProcessingPayment(true);
+    
+    // Require login to book
+    const authToken = token || Cookies.get("token");
+    if (!authToken) {
+      toast.info("Please login to book a flight.");
+      const redirect = encodeURIComponent(window.location.pathname + (window.location.search || ""));
+      return navigateTo(`/login?redirect=${redirect}`);
+    }
     // Auto-submit all passenger forms to register filled forms
     try {
       const forms = document.querySelectorAll('.passenger-form');
@@ -896,7 +914,11 @@ const Details = () => {
             order_id: order.id,
             prefill: { name: contactName, email: contactEmail, contact: contactPhone },
             notes: { intentId },
-            theme: { color: "#0b5cff" },
+            theme: { 
+              color: "#2563eb",
+              backdrop_color: "#1e293b"
+            },
+            image: "https://via.placeholder.com/150/2563eb/ffffff?text=FH",
             handler: async function (response) {
               try {
                 const verify = await fetch("http://localhost:5000/api/razorpay/verify", {
@@ -942,15 +964,19 @@ const Details = () => {
 
       try {
         await startRazorpay();
+        setIsProcessingPayment(false);
         return; // success path handled inside
       } catch (rzpErr) {
         console.warn("Razorpay flow failed:", rzpErr);
+        setIsProcessingPayment(false);
       }
 
       // No PayPal fallback when Razorpay fails
+      setIsProcessingPayment(false);
       return toast.error("Payment could not be started. Please try again.");
     } catch (e) {
       console.error("Error preparing payment intent", e);
+      setIsProcessingPayment(false);
       toast.error("Failed to start payment. Please try again.");
     }
   };
@@ -1001,14 +1027,126 @@ const Details = () => {
           </div>
         )}
       </div>
-      <div className=" flex flex-row justify-center mb-4 mt-4">
+      <div className="flex flex-row justify-center mb-8 mt-6">
         <button
           type="submit"
           onClick={handleBookFlight}
-          className="bg-blue-950 hover:bg-blue-900 text-white text-xl font-semibold px-12 py-2 rounded"
+          disabled={isProcessingPayment}
+          className="group relative bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 hover:from-blue-700 hover:via-blue-800 hover:to-indigo-800 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed text-white text-lg font-semibold px-16 py-4 rounded-xl shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:scale-105 disabled:hover:scale-100 flex items-center gap-3 overflow-hidden"
         >
-          Book Flight
+          {isProcessingPayment ? (
+            <span className="relative z-10 flex items-center gap-3">
+              <svg className="animate-spin h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Processing Payment...
+            </span>
+          ) : (
+            <span className="relative z-10 flex items-center gap-3">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+              Proceed to Secure Payment
+              <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+              </svg>
+            </span>
+          )}
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
         </button>
+      </div>
+      
+      {/* Payment Summary Modal */}
+      {showPaymentSummary && bookingDetails && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in duration-300">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-2xl font-bold text-slate-900">Payment Summary</h3>
+              <button
+                onClick={() => setShowPaymentSummary(false)}
+                className="text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="space-y-4 mb-6">
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-100">
+                <div className="flex items-center gap-3 mb-2">
+                  <FontAwesomeIcon icon={faPlane} className="text-blue-600 text-xl" />
+                  <div>
+                    <p className="font-semibold text-slate-900">{bookingDetails.from} → {bookingDetails.to}</p>
+                    <p className="text-sm text-slate-600">Flight {bookingDetails.flightNo || 'N/A'}</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <div className="flex justify-between text-slate-700">
+                  <span>Base Fare ({passengers} passenger{passengers > 1 ? 's' : ''})</span>
+                  <span className="font-medium">₹{Number(bookingDetails.price || 0) * Number(passengers || 1)}</span>
+                </div>
+                <div className="flex justify-between text-slate-700">
+                  <span>Tax (12%)</span>
+                  <span className="font-medium">₹{Math.round((Number(bookingDetails.price || 0) * Number(passengers || 1) * 0.12) * 100) / 100}</span>
+                </div>
+                <div className="flex justify-between text-slate-700">
+                  <span>Other Charges</span>
+                  <span className="font-medium">₹{Math.round((Number(bookingDetails.price || 0) * Number(passengers || 1) * 0.03) * 100) / 100}</span>
+                </div>
+                <div className="border-t pt-2 mt-2 flex justify-between text-lg font-bold text-slate-900">
+                  <span>Total Amount</span>
+                  <span className="text-blue-600">₹{Math.round((Number(bookingDetails.price || 0) * Number(passengers || 1) * 1.15) * 100) / 100}</span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowPaymentSummary(false)}
+                className="flex-1 px-4 py-3 rounded-lg border-2 border-slate-300 text-slate-700 font-medium hover:bg-slate-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmPayment}
+                className="flex-1 px-4 py-3 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg hover:shadow-xl"
+              >
+                Confirm & Pay
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Payment Security Info */}
+      <div className="flex flex-col items-center gap-3 mb-8 px-4">
+        <div className="flex items-center gap-6 text-sm text-slate-600">
+          <div className="flex items-center gap-2">
+            <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            </svg>
+            <span>Secure Payment</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+            <span>SSL Encrypted</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+            </svg>
+            <span>Multiple Payment Options</span>
+          </div>
+        </div>
+        <p className="text-xs text-slate-500 text-center max-w-md">
+          Your payment is processed securely by Razorpay. We do not store your card details.
+        </p>
       </div>
     </div>
   );

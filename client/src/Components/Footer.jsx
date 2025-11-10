@@ -11,8 +11,8 @@ import {
 
 const Footer = () => {
   return (
-    <footer className="mt-12 bg-blue-950 text-blue-100">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+    <footer className="mt-12 bg-gradient-to-b from-blue-950 to-blue-900 text-blue-100 border-t border-blue-800/30">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-10">
           {/* Brand & About */}
           <div>
@@ -25,16 +25,36 @@ const Footer = () => {
               Trusted by travelers across India.
             </p>
             <div className="mt-4 flex items-center gap-4 text-2xl">
-              <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" className="hover:text-white">
+              <a 
+                href="https://facebook.com" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="p-2 rounded-full bg-blue-800/50 hover:bg-blue-700 text-blue-200 hover:text-white transition-all duration-300 hover:scale-110"
+              >
                 <FontAwesomeIcon icon={faFacebook} />
               </a>
-              <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="hover:text-white">
+              <a 
+                href="https://twitter.com" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="p-2 rounded-full bg-blue-800/50 hover:bg-blue-700 text-blue-200 hover:text-white transition-all duration-300 hover:scale-110"
+              >
                 <FontAwesomeIcon icon={faTwitter} />
               </a>
-              <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" className="hover:text-white">
+              <a 
+                href="https://linkedin.com" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="p-2 rounded-full bg-blue-800/50 hover:bg-blue-700 text-blue-200 hover:text-white transition-all duration-300 hover:scale-110"
+              >
                 <FontAwesomeIcon icon={faLinkedin} />
               </a>
-              <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="hover:text-white">
+              <a 
+                href="https://instagram.com" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="p-2 rounded-full bg-blue-800/50 hover:bg-blue-700 text-blue-200 hover:text-white transition-all duration-300 hover:scale-110"
+              >
                 <FontAwesomeIcon icon={faInstagram} />
               </a>
             </div>
@@ -43,23 +63,23 @@ const Footer = () => {
           {/* Quick Links */}
           <div>
             <h4 className="text-lg font-semibold mb-3">Quick Links</h4>
-            <ul className="space-y-2 text-sm">
-              <li><Link to="/" className="hover:underline">Home</Link></li>
-              <li><Link to="/flights" className="hover:underline">Flights</Link></li>
-              <li><Link to="/bookings" className="hover:underline">Bookings</Link></li>
-              <li><Link to="/contact" className="hover:underline">Contact</Link></li>
+            <ul className="space-y-2.5 text-sm">
+              <li><Link to="/" className="hover:text-white hover:underline transition-colors duration-200">Home</Link></li>
+              <li><Link to="/flights" className="hover:text-white hover:underline transition-colors duration-200">Flights</Link></li>
+              <li><Link to="/bookings" className="hover:text-white hover:underline transition-colors duration-200">Bookings</Link></li>
+              <li><Link to="/contact" className="hover:text-white hover:underline transition-colors duration-200">Contact</Link></li>
             </ul>
           </div>
 
           {/* Admin */}
           <div>
             <h4 className="text-lg font-semibold mb-3">Admin</h4>
-            <ul className="space-y-2 text-sm">
-              <li><Link to="/admin/login" className="hover:underline">Admin Login</Link></li>
-              <li><Link to="/admin/dashboard" className="hover:underline">Dashboard</Link></li>
-              <li><Link to="/admin/flights" className="hover:underline">Manage Flights</Link></li>
-              <li><Link to="/admin/bookings" className="hover:underline">Manage Bookings</Link></li>
-              <li><Link to="/admin/users" className="hover:underline">Manage Users</Link></li>
+            <ul className="space-y-2.5 text-sm">
+              <li><Link to="/admin/login" className="hover:text-white hover:underline transition-colors duration-200">Admin Login</Link></li>
+              <li><Link to="/admin/dashboard" className="hover:text-white hover:underline transition-colors duration-200">Dashboard</Link></li>
+              <li><Link to="/admin/flights" className="hover:text-white hover:underline transition-colors duration-200">Manage Flights</Link></li>
+              <li><Link to="/admin/bookings" className="hover:text-white hover:underline transition-colors duration-200">Manage Bookings</Link></li>
+              <li><Link to="/admin/users" className="hover:text-white hover:underline transition-colors duration-200">Manage Users</Link></li>
             </ul>
           </div>
 
@@ -87,12 +107,12 @@ const Footer = () => {
           </div>
         </div>
 
-  <div className="mt-8 pt-4 border-t border-blue-800 flex flex-col md:flex-row items-center justify-between text-sm text-blue-300 gap-3">
-          <p>© {new Date().getFullYear()} FlightHub. All rights reserved.</p>
-          <div className="flex items-center gap-4">
-            <Link to="/contact" className="hover:underline">Support</Link>
-            <a href="#" className="hover:underline">Privacy</a>
-            <a href="#" className="hover:underline">Terms</a>
+  <div className="mt-10 pt-6 border-t border-blue-800/50 flex flex-col md:flex-row items-center justify-between text-sm text-blue-300 gap-4">
+          <p className="text-blue-200">© {new Date().getFullYear()} FlightHub. All rights reserved.</p>
+          <div className="flex items-center gap-6">
+            <Link to="/contact" className="hover:text-white hover:underline transition-colors duration-200">Support</Link>
+            <a href="#" className="hover:text-white hover:underline transition-colors duration-200">Privacy</a>
+            <a href="#" className="hover:text-white hover:underline transition-colors duration-200">Terms</a>
           </div>
         </div>
       </div>

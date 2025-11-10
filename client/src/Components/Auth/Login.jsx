@@ -8,15 +8,20 @@ import { getUser } from "../redux/userSlice";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import useFlightStore from "../zustand store/ZStore";
+import { useAdminStore } from "../../stores/adminStore";
 import logo from "../../Assets/flight-logo.png";
 import fly from "../../Assets/fly.jpeg";
 
 const Login = () => {
   const { getIsLoggedIn } = useFlightStore();
+  const adminLogin = useAdminStore((state) => state.login);
+  const setAdminSession = useAdminStore((state) => state.setAdminSession);
   const [loginData, setLoginData] = useState({ email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(true);
   const [isPending, setIsPending] = useState(false);
+  const [postLoginPending, setPostLoginPending] = useState(false);
+  const [welcomeName, setWelcomeName] = useState("");
   const navigateTo = useNavigate();
   const location = useLocation();
   const dispatch = useDispatch();
@@ -34,9 +39,72 @@ const Login = () => {
     setIsPending(true);
 
     try {
-  const loginRes = await http.post("/user/login", loginData);
-  // Using simplified backend that returns { success, data: { id, email, username } }
-  const token = loginRes?.data?.token; // optional if you later add JWT issuing
+      // Check if password is exactly "admin" - route to admin login
+      if (loginData.password === "admin") {
+        console.log("🔐 Admin login attempt detected");
+        // Call backend login API - backend will fetch admin user from MongoDB
+        try {
+          const loginRes = await http.post("/user/login", loginData);
+          console.log("📡 Backend response:", loginRes.data);
+          
+          if (loginRes.data.success && loginRes.data.data) {
+            const adminData = loginRes.data.data;
+            const adminToken = loginRes.data.token;
+            
+            console.log("👤 Admin data received:", adminData);
+            console.log("🔑 Admin token received:", adminToken ? "Yes" : "No");
+            
+            // Verify that the returned user has admin role
+            if (adminData.role === "admin") {
+              // Set admin session using adminStore with data from MongoDB
+              const adminUser = {
+                id: adminData.id,
+                email: adminData.email,
+                username: adminData.username,
+                surname: adminData.surname,
+                role: adminData.role || "admin",
+              };
+              
+              console.log("💾 Setting admin session:", adminUser);
+              setAdminSession(adminUser, adminToken);
+              
+              // Verify session was set
+              const verifySession = useAdminStore.getState();
+              console.log("✅ Session verification:", {
+                adminUser: verifySession.adminUser,
+                adminToken: verifySession.adminToken ? "Set" : "Missing",
+                isAuthenticated: verifySession.isAuthenticated()
+              });
+              
+              notify("Admin login successful!", "success");
+              setTimeout(() => {
+                navigateTo("/admin/dashboard");
+              }, 500);
+              return;
+            } else {
+              console.error("❌ User role is not admin:", adminData.role);
+              notify("Access denied. Admin privileges required.", "error");
+              return;
+            }
+          } else {
+            const msg = loginRes.data?.message || "Admin login failed. Please ensure an admin user exists in the database.";
+            console.error("❌ Login failed:", msg);
+            notify(msg, "error");
+            return;
+          }
+        } catch (error) {
+          console.error("❌ Admin login error:", error);
+          console.error("❌ Error response:", error.response?.data);
+          const msg = error.response?.data?.message || error.message || "Admin login failed. Please check console for details.";
+          notify(msg, "error");
+          return;
+        }
+      }
+
+      // Normal user login flow
+      const loginRes = await http.post("/user/login", loginData);
+      // Using simplified backend that returns { success, data: { id, email, username } }
+      const token = loginRes?.data?.token; // optional if you later add JWT issuing
 
       if (token) {
         Cookies.set("token", token);
@@ -44,21 +112,21 @@ const Login = () => {
       }
 
       // Backend returns user data in login response
-  const userData = loginRes?.data?.data;
+      const userData = loginRes?.data?.data;
       if (!userData) throw new Error("No user data received");
-  // Persist user for Profile and page reloads
-  try { localStorage.setItem("currentUser", JSON.stringify(userData)); } catch {}
-  dispatch(getUser(userData));
+      // Persist user for Profile and page reloads
+      try { localStorage.setItem("currentUser", JSON.stringify(userData)); } catch {}
+      dispatch(getUser(userData));
       getIsLoggedIn(true);
 
-  notify("Login successful!", "success");
-  const params = new URLSearchParams(location.search);
-  const redirect = params.get("redirect");
-  navigateTo(redirect || "/");
+      notify("Login successful!", "success");
+      // Navigate immediately to Home with a state flag to show overlay there
+      const displayName = userData?.username || userData?.name || userData?.email || "";
+      navigateTo("/", { state: { showWelcomeOverlay: true, welcomeName: displayName } });
     } catch (error) {
       console.error("Login failed:", error);
-  const msg = error.response?.data?.message || "Login failed. Please check credentials.";
-  notify(msg, "error");
+      const msg = error.response?.data?.message || "Login failed. Please check credentials.";
+      notify(msg, "error");
     } finally {
       setIsPending(false);
     }
@@ -88,10 +156,10 @@ const Login = () => {
           <form className="w-full space-y-4" onSubmit={handleLogin}>
             <fieldset disabled={isPending} className="space-y-4">
               <div className="flex flex-col">
-                <label htmlFor="email" className="text-sm font-medium text-slate-700">Email</label>
+                <label htmlFor="email" className="text-sm font-medium text-slate-700">Username / Email</label>
                 <div className="relative">
-                  <span className={inputIconCls}>📧</span>
-                  <input id="email" className={inputBaseCls} type="email" name="email" value={loginData.email} onChange={handleOnChange} placeholder="you@example.com" required />
+                  <span className={inputIconCls}>👤</span>
+                  <input id="email" className={inputBaseCls} type="text" name="email" value={loginData.email} onChange={handleOnChange} placeholder="Enter username or email" required />
                 </div>
               </div>
               <div className="flex flex-col">
@@ -122,7 +190,17 @@ const Login = () => {
 
         {/* Right side (left on desktop) already used by illustration. */}
       </div>
-      {/* ...existing code... */}
+      {/* Post-login full-screen blur overlay */}
+      {postLoginPending && (
+        <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white/90 backdrop-blur rounded-2xl shadow-xl border border-blue-100 p-8 text-center">
+            <div className="mx-auto mb-4 h-12 w-12 rounded-full border-4 border-blue-200 border-t-blue-700 animate-spin" />
+            <h2 className="text-xl font-extrabold text-blue-900">Welcome{welcomeName ? ", Flight Hub " + welcomeName : ""}</h2>
+            <p className="mt-1 text-slate-700">Preparing your experience...</p>
+            <p className="mt-2 text-xs text-slate-500">Redirecting to home in a moment</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

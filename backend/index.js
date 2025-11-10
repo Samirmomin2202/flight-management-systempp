@@ -9,6 +9,7 @@ import adminRoutes from "./routes/admin.js";
 import contactRoutes from "./routes/contact.js";
 // import paymentsRoutes from "./routes/payments.js";
 import razorpayRoutes from "./routes/razorpay.js";
+import aiRoutes from "./routes/ai.js";
 
 import dotenv from "dotenv";
 dotenv.config();
@@ -37,6 +38,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/contact", contactRoutes);
 // app.use("/api/payments", paymentsRoutes);
 app.use("/api/razorpay", razorpayRoutes);
+app.use("/api/ai", aiRoutes);
 // User routes (legacy + new)
 app.use("/user", userRoute);
 app.use("/api/user", userRoute);

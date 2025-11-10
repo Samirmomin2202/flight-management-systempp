@@ -3,6 +3,7 @@ import User from "../../models/user.model.js";
 import { createUser, loginUser, getMe } from "./user.controller.js";
 import Joi from "joi";
 import auth from "../middleware/auth.middleware.js";
+import { requireAdmin } from "../middleware/isAdmin.middleware.js";
 import bcrypt from "bcryptjs";
 import { sendEmail } from "../../utils/mailer.js";
 
@@ -14,20 +15,10 @@ router.post("/signup", createUser);
 // Login
 router.post("/login", loginUser);
 
-// Admin: list all users (no auth yet; wire middleware later if needed)
-router.get("/all", async (req, res) => {
-  try {
-    const users = await User.find().select("-password").sort({ createdAt: -1 });
-    res.json({ success: true, data: users, count: users.length });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
-
-// Current user (protected)
+// Current user (protected) - MUST come before /:id routes
 router.get("/me", auth, getMe);
 
-// Update current user profile (protected)
+// Update current user profile (protected) - MUST come before /:id routes
 router.put("/me", auth, async (req, res) => {
   try {
     if (!req.user) return res.status(401).json({ success: false, message: "Unauthorized" });
@@ -56,7 +47,74 @@ router.put("/me", auth, async (req, res) => {
   }
 });
 
-export default router;
+// Admin: list all users (Admin only)
+router.get("/all", ...requireAdmin, async (req, res) => {
+  try {
+    const users = await User.find().select("-password").sort({ createdAt: -1 });
+    res.json({ success: true, data: users, count: users.length });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Admin: Update user (Admin only)
+router.put("/:id", ...requireAdmin, async (req, res) => {
+  try {
+    console.log("✏️ PUT /user/:id hit - ID:", req.params.id);
+    const { id } = req.params;
+    const schema = Joi.object({
+      username: Joi.string().optional(),
+      surname: Joi.string().optional(),
+      email: Joi.string().email().optional(),
+      role: Joi.string().valid("user", "admin").optional(),
+    });
+    const { error, value } = schema.validate(req.body, { allowUnknown: false });
+    if (error) return res.status(400).json({ success: false, message: error.message });
+
+    // Check if email is being updated and if it's already taken
+    if (value.email) {
+      const existingUser = await User.findOne({ email: value.email, _id: { $ne: id } });
+      if (existingUser) {
+        return res.status(400).json({ success: false, message: "Email already exists" });
+      }
+    }
+
+    const updated = await User.findByIdAndUpdate(id, value, { new: true }).select("-password");
+    if (!updated) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    res.json({ success: true, data: updated, message: "User updated successfully" });
+  } catch (err) {
+    console.error("Update user error:", err);
+    res.status(500).json({ success: false, message: "Something went wrong!" });
+  }
+});
+
+// Admin: Delete user (Admin only)
+router.delete("/:id", ...requireAdmin, async (req, res) => {
+  try {
+    console.log("🗑️ DELETE /user/:id hit - ID:", req.params.id);
+    const { id } = req.params;
+    
+    // Prevent deleting yourself
+    if (req.user && req.user._id.toString() === id) {
+      return res.status(400).json({ success: false, message: "You cannot delete your own account" });
+    }
+
+    const deleted = await User.findByIdAndDelete(id);
+    if (!deleted) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    console.log("✅ User deleted successfully:", id);
+    res.json({ success: true, message: "User deleted successfully" });
+  } catch (err) {
+    console.error("❌ Delete user error:", err);
+    res.status(500).json({ success: false, message: "Something went wrong!" });
+  }
+});
+
 // Forgot password: request OTP
 router.post("/forgot/request", async (req, res) => {
   const schema = Joi.object({ email: Joi.string().email().required() });
@@ -133,3 +191,5 @@ router.post("/forgot/verify", async (req, res) => {
     res.status(500).json({ success: false, message: "Unable to reset password." });
   }
 });
+
+export default router;

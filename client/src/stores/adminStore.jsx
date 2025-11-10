@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import http from "../api/http";
 
 const persisted = (() => {
   try {
@@ -9,30 +10,83 @@ const persisted = (() => {
   }
 })();
 
+const persistedToken = (() => {
+  try {
+    return localStorage.getItem("adminToken") || null;
+  } catch {
+    return null;
+  }
+})();
+
 export const useAdminStore = create((set, get) => ({
   adminUser: persisted,
+  adminToken: persistedToken,
 
-  // Now using email & password
-  login: (email, password) => {
-    // Example hardcoded admin account (replace with API call if needed)
-    if (email === "admin123@gmail.com" && password === "admin123") {
-      const user = { email, role: "admin" };
-      set({ adminUser: user });
-      try { localStorage.setItem("adminUser", JSON.stringify(user)); } catch {}
-      return true;
+  // Login using backend API
+  login: async (email, password) => {
+    try {
+      const response = await http.post("/user/login", { email, password });
+      
+      if (response.data.success && response.data.data) {
+        const userData = response.data.data;
+        const token = response.data.token;
+        
+        // Check if user has admin role
+        if (userData.role !== "admin") {
+          return { success: false, message: "Access denied. Admin privileges required." };
+        }
+        
+        const user = {
+          id: userData.id,
+          email: userData.email,
+          username: userData.username,
+          role: userData.role || "admin",
+        };
+        
+        set({ adminUser: user, adminToken: token });
+        try {
+          localStorage.setItem("adminUser", JSON.stringify(user));
+          localStorage.setItem("adminToken", token);
+        } catch {}
+        
+        return { success: true, user };
+      } else {
+        return { success: false, message: response.data.message || "Login failed" };
+      }
+    } catch (error) {
+      const message = error.response?.data?.message || error.message || "Login failed";
+      return { success: false, message };
     }
-    return false;
   },
 
   logout: () => {
-    try { localStorage.removeItem("adminUser"); } catch {}
-    set({ adminUser: null });
+    try {
+      localStorage.removeItem("adminUser");
+      localStorage.removeItem("adminToken");
+    } catch {}
+    set({ adminUser: null, adminToken: null });
   },
+  
   updateAdmin: (partial) => {
     const current = get().adminUser || {};
     const updated = { ...current, ...partial };
     set({ adminUser: updated });
     try { localStorage.setItem("adminUser", JSON.stringify(updated)); } catch {}
   },
-  isAuthenticated: () => !!get().adminUser,
+  
+  setAdminSession: (user, token) => {
+    set({ adminUser: user, adminToken: token });
+    try {
+      localStorage.setItem("adminUser", JSON.stringify(user));
+      localStorage.setItem("adminToken", token);
+    } catch {}
+  },
+  
+  isAuthenticated: () => {
+    const user = get().adminUser;
+    const token = get().adminToken;
+    return !!(user && token && user.role === "admin");
+  },
+  
+  getToken: () => get().adminToken,
 }));

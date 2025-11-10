@@ -4,11 +4,12 @@ import Booking from "../models/Booking.js";
 import Passenger from "../models/Passenger.js";
 import Flight from "../models/Flight.js";
 import User from "../src/models/user.model.js";
+import { requireAdmin } from "../src/apis/middleware/isAdmin.middleware.js";
 
 const router = express.Router();
 
-// ✅ Get all bookings with passengers
-router.get("/bookings", async (req, res) => {
+// ✅ Get all bookings with passengers (Admin only)
+router.get("/bookings", requireAdmin, async (req, res) => {
   try {
     const bookings = await Booking.find().sort({ bookingDate: -1 }).lean();
 
@@ -31,8 +32,8 @@ router.get("/bookings", async (req, res) => {
   }
 });
 
-// ✅ Admin stats (totals and weekly trend)
-router.get("/stats", async (req, res) => {
+// ✅ Admin stats (totals and weekly trend) (Admin only)
+router.get("/stats", requireAdmin, async (req, res) => {
   try {
     const tz = process.env.ADMIN_TZ || 'Asia/Kolkata';
     const now = new Date();
@@ -286,6 +287,26 @@ router.get("/stats", async (req, res) => {
         }),
       },
     });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ✅ Get all users (Admin only)
+router.get("/users", requireAdmin, async (req, res) => {
+  try {
+    const users = await User.find().select("-password").sort({ createdAt: -1 });
+    res.json({ success: true, data: users, count: users.length });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ✅ Get all flights (Admin only)
+router.get("/flights", requireAdmin, async (req, res) => {
+  try {
+    const flights = await Flight.find().sort({ departure: -1 });
+    res.json({ success: true, data: flights, count: flights.length });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

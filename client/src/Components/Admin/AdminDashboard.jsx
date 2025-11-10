@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import AdminSidebar from "./AdminSidebar";
+import adminHttp from "../../api/adminHttp";
 import { Bar, Line, Pie } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -103,14 +104,19 @@ const AdminDashboard = () => {
   const fetchStats = async () => {
     try {
       setRefreshing(true);
-      const res = await fetch("http://localhost:5000/api/admin/stats");
-      const json = await res.json();
-      if (!json.success) throw new Error(json.message || "Failed to load stats");
-      setStats(json.stats);
+      // Use adminHttp which includes authentication token
+      const res = await adminHttp.get("/admin/stats");
+      if (!res.data.success) throw new Error(res.data.message || "Failed to load stats");
+      setStats(res.data.stats);
       setError("");
     } catch (e) {
       console.error("Admin stats error:", e);
-      setError(e.message);
+      const errorMsg = e.response?.data?.message || e.message || "Failed to load stats";
+      setError(errorMsg);
+      // If unauthorized, show specific message
+      if (e.response?.status === 401 || e.response?.status === 403) {
+        setError("Unauthorized: Please log in as admin");
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);

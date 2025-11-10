@@ -1,6 +1,6 @@
 // src/App.jsx
 import { BrowserRouter, Routes, Route, useLocation, Navigate, useNavigate } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import Cookies from "js-cookie";
 
@@ -10,6 +10,7 @@ import Flights from "./Components/Flights";
 import Bookings from "./Components/Bookings";
 import Contact from "./Components/Contact";
 import Login from "./Components/Auth/Login";
+import Welcome from "./Components/Auth/Welcome";
 import Signup from "./Components/Auth/Signup";
 import Booked from "./Components/Booked";
 import Footer from "./Components/Footer";
@@ -35,8 +36,25 @@ import { user } from "./Components/redux/userSlice";
 
 // Protected Admin Route
 const ProtectedRoute = ({ children }) => {
-  const isAuthenticated = useAdminStore((state) => state.isAuthenticated());
-  return isAuthenticated ? children : <Navigate to="/admin/login" />;
+  const isAuthenticated = useAdminStore((state) => state.isAuthenticated);
+  const adminUser = useAdminStore((state) => state.adminUser);
+  const adminToken = useAdminStore((state) => state.adminToken);
+  
+  const authStatus = isAuthenticated();
+  
+  console.log("🛡️ ProtectedRoute check:", {
+    isAuthenticated: authStatus,
+    adminUser: adminUser ? "Exists" : "Missing",
+    adminToken: adminToken ? "Set" : "Missing",
+    role: adminUser?.role
+  });
+  
+  if (!authStatus || !adminUser || !adminToken) {
+    console.log("🚫 Redirecting to admin login - not authenticated");
+    return <Navigate to="/admin/login" replace />;
+  }
+  
+  return children;
 };
 
 // Simple user auth guard for booking flow
@@ -55,6 +73,8 @@ const AppContent = () => {
   const location = useLocation();
   const token = useSelector(accesstoken);
   const users = useSelector(user);
+  const navigate = useNavigate();
+  const [welcomeOverlay, setWelcomeOverlay] = useState(null);
 
   const hideLayoutRoutes = [
     "/login",
@@ -73,6 +93,23 @@ const AppContent = () => {
     window.scrollTo(0, 0);
   }, [location.pathname]);
 
+  // Show a transient welcome overlay on top of the current page (e.g., Home)
+  useEffect(() => {
+    const s = location.state;
+    if (s && s.showWelcomeOverlay) {
+      setWelcomeOverlay({ name: s.welcomeName || "" });
+      // Clear state so back/forward doesn't re-trigger
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, location.pathname, navigate]);
+
+  // Hide overlay after a short delay once shown. This avoids StrictMode double-effect issues.
+  useEffect(() => {
+    if (!welcomeOverlay) return;
+    const t = setTimeout(() => setWelcomeOverlay(null), 3000);
+    return () => clearTimeout(t);
+  }, [welcomeOverlay]);
+
   return (
     <div className="min-h-screen w-full flex flex-col">
       {!shouldHideLayout && (
@@ -81,7 +118,7 @@ const AppContent = () => {
         </div>
       )}
 
-  <div className={shouldHideLayout ? "" : "flex-1 pt-20"}>
+  <div className={shouldHideLayout ? "" : "flex-1 pt-14"}>
       <Routes>
         {/* Public Routes */}
         <Route path="/" element={<Home />} />
@@ -96,6 +133,7 @@ const AppContent = () => {
         <Route path="/flight-info/:id" element={<FlightDetails />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/welcome" element={<RequireAuth><Welcome /></RequireAuth>} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/forgot" element={<ForgotPassword />} />
         <Route path="/profile" element={<Profile />} />
@@ -155,6 +193,20 @@ const AppContent = () => {
       </Routes>
       </div>
       {!shouldHideLayout && <Footer />}
+
+      {/* Global welcome overlay */}
+      {welcomeOverlay && (
+        <div className="fixed inset-0 z-[200] bg-black/40 backdrop-blur flex items-center justify-center p-4">
+          <div className="w-full max-w-lg bg-white/95 backdrop-blur rounded-2xl shadow-2xl border border-blue-100 p-10 text-center">
+            <div className="mx-auto mb-5 h-12 w-12 rounded-full border-4 border-blue-200 border-t-blue-700 animate-spin" />
+            <h2 className="text-2xl md:text-3xl font-extrabold text-blue-900">
+              Welcome to Flight Hub, <span className="text-amber-400">{welcomeOverlay.name || "Traveler"}</span>
+            </h2>
+            <p className="mt-2 text-slate-700">We’re getting things ready for you...</p>
+            <p className="mt-2 text-xs text-slate-500">This will just take a second</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

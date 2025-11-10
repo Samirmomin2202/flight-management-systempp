@@ -1,10 +1,8 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import adminHttp from "../../api/adminHttp";
 import AdminSidebar from "./AdminSidebar";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import { useSelector } from "react-redux";
-import { accesstoken } from "../redux/tokenSlice";
 
 const AdminBookings = () => {
   const [bookings, setBookings] = useState([]);
@@ -12,15 +10,12 @@ const AdminBookings = () => {
   const [error, setError] = useState("");
   const [statusChanges, setStatusChanges] = useState({}); // bookingId -> status
   const [savingId, setSavingId] = useState(null);
-  const token = useSelector(accesstoken);
 
   useEffect(() => {
     const fetchAllBookings = async () => {
       try {
         // Fetch all bookings for admin
-        const res = await axios.get("http://localhost:5000/api/admin/bookings", {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        });
+        const res = await adminHttp.get("/admin/bookings");
         if (res.data.success) {
           setBookings(res.data.bookings);
         }
@@ -36,22 +31,17 @@ const AdminBookings = () => {
 
   const handleDelete = async (bookingId) => {
     if (!window.confirm("Delete this booking? This will also delete its passengers.")) return;
-    if (!token) {
-      toast.error("Unauthorized: Please log in as admin");
-      return;
-    }
     try {
-      const res = await axios.delete(`http://localhost:5000/api/bookings/${bookingId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await adminHttp.delete(`/bookings/${bookingId}`);
       if (res.data.success) {
         setBookings((prev) => prev.filter((b) => b._id !== bookingId));
+        toast.success("Booking deleted successfully");
       } else {
-        alert(res.data.message || "Delete failed");
+        toast.error(res.data.message || "Delete failed");
       }
     } catch (err) {
       console.error("Delete failed:", err);
-      alert(err.response?.data?.message || err.message);
+      toast.error(err.response?.data?.message || err.message);
     }
   };
 
@@ -71,15 +61,9 @@ const AdminBookings = () => {
     if ((booking.status || "pending").toLowerCase() === selected) return;
     try {
       setSavingId(booking._id);
-      if (!token) {
-        toast.error("Unauthorized: Please log in as admin");
-        setSavingId(null);
-        return;
-      }
-      const res = await axios.put(
-        `http://localhost:5000/api/bookings/${booking._id}`,
-        { status: selected },
-        { headers: { Authorization: `Bearer ${token}` } }
+      const res = await adminHttp.put(
+        `/bookings/${booking._id}`,
+        { status: selected }
       );
       if (res.data.success) {
         setBookings((prev) =>
@@ -99,7 +83,22 @@ const AdminBookings = () => {
           delete next[booking._id];
           return next;
         });
-        toast.success(`Status set to ${selected}`);
+        
+        // Show appropriate message based on status with email notification
+        if (selected === "confirmed") {
+          // Check if email was actually sent (backend logs will show this)
+          toast.success(`✅ Booking confirmed! Confirmation email with PDF ticket will be sent to ${booking.userEmail || "customer"}.`, {
+            autoClose: 5000,
+          });
+          console.log("📧 Check backend console for email sending status. If emails are not being sent, configure EMAIL_PROVIDER in backend/.env");
+        } else if (selected === "cancelled") {
+          toast.success(`❌ Booking cancelled! Cancellation email will be sent to ${booking.userEmail || "customer"}.`, {
+            autoClose: 5000,
+          });
+          console.log("📧 Check backend console for email sending status. If emails are not being sent, configure EMAIL_PROVIDER in backend/.env");
+        } else {
+          toast.success(`Status set to ${selected}`);
+        }
       } else {
         toast.error(res.data.message || "Update failed");
       }
@@ -197,29 +196,30 @@ const AdminBookings = () => {
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-2 text-center space-x-2">
-                    <button
-                      onClick={() => handleSaveStatus(b)}
-                      disabled={savingId === b._id || ((statusChanges[b._id] ?? (b.status || "pending")).toLowerCase() === (b.status || "pending").toLowerCase())}
-                      className={`px-3 py-1 rounded text-sm text-white ${savingId === b._id ? "bg-gray-400" : "bg-yellow-500 hover:bg-yellow-600"}`}
-                    >
-                      {savingId === b._id ? "Saving…" : "Save"}
-                    </button>
-                    {/* View Ticket button removed per request */}
-                    <button
-                      onClick={() => handleDelete(b._id)}
-                      className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm"
-                    >
-                      Delete
-                    </button>
-                    {b.paymentStatus === "completed" && (
+                  <td className="px-4 py-2 text-center">
+                    <div className="flex flex-col sm:flex-row items-center justify-center gap-2">
                       <button
-                        onClick={() => handleRefund(b._id)}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm"
+                        onClick={() => handleSaveStatus(b)}
+                        disabled={savingId === b._id || ((statusChanges[b._id] ?? (b.status || "pending")).toLowerCase() === (b.status || "pending").toLowerCase())}
+                        className={`w-full sm:w-auto px-4 py-2 rounded-lg text-sm font-medium shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 ${savingId === b._id ? "bg-gray-400 cursor-not-allowed" : "bg-yellow-500 hover:bg-yellow-600 text-white"}`}
                       >
-                        Refund
+                        {savingId === b._id ? "Saving…" : "Save"}
                       </button>
-                    )}
+                      <button
+                        onClick={() => handleDelete(b._id)}
+                        className="w-full sm:w-auto bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105"
+                      >
+                        Delete
+                      </button>
+                      {b.paymentStatus === "completed" && (
+                        <button
+                          onClick={() => handleRefund(b._id)}
+                          className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105"
+                        >
+                          Refund
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -227,6 +227,7 @@ const AdminBookings = () => {
           </table>
         </div>
       </div>
+      <ToastContainer position="top-right" autoClose={3000} />
     </div>
   );
 };
