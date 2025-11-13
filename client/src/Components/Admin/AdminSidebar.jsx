@@ -64,6 +64,12 @@ const AdminSidebar = () => {
           >
             Users
           </Link>
+          <Link
+            to="/admin/airlines"
+            className="hover:bg-blue-700 p-2 rounded"
+          >
+            Airlines
+          </Link>
           
           <Link
   to="/admin/contacts"

@@ -23,6 +23,7 @@ import AdminBookings from "./Components/Admin/AdminBookings";
 import AdminUsers from "./Components/Admin/AdminUsers";
 import AdminContacts from "./Components/Admin/AdminContacts";
 import AdminProfile from "./Components/Admin/AdminProfile";
+import AdminAirlines from "./Components/Admin/AdminAirlines";
 import FlightDetails from "./Components/FlightDetails";
 import ViewTicket from "./Components/ViewTicket";
 import Details from "./Components/Details";
@@ -84,7 +85,8 @@ const AppContent = () => {
     "/admin/flights",
     "/admin/bookings",
     "/admin/users",
-    "/admin/contacts",
+  "/admin/contacts",
+  "/admin/airlines",
     
   ];
   const shouldHideLayout = hideLayoutRoutes.includes(location.pathname);
@@ -187,6 +189,14 @@ const AppContent = () => {
           element={
             <ProtectedRoute>
               <AdminContacts />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/airlines"
+          element={
+            <ProtectedRoute>
+              <AdminAirlines />
             </ProtectedRoute>
           }
         />

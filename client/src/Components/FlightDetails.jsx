@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from "react";
+import { listAirlines } from "../api/airlinesApi";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import AirlineStrip from "./AirlineStrip";
 
 const FlightDetails = () => {
   const { id } = useParams();
@@ -11,6 +13,7 @@ const FlightDetails = () => {
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [airlines, setAirlines] = useState([]);
 
   const [passengerInfo, setPassengerInfo] = useState({
     firstName: "",
@@ -27,6 +30,7 @@ const FlightDetails = () => {
   });
 
   const [formError, setFormError] = useState({});
+  const [logoSrc, setLogoSrc] = useState(null);
 
   // load booking info
   useEffect(() => {
@@ -51,10 +55,28 @@ const FlightDetails = () => {
       }
     };
     fetchBooking();
+    // Fetch airlines for logo mapping
+    (async () => {
+      try {
+        const data = await listAirlines();
+        if (!canceled) setAirlines(data);
+      } catch {}
+    })();
     return () => {
       canceled = true;
     };
   }, [id]);
+
+  // Derive logoSrc when booking or airlines change
+  useEffect(() => {
+    if (!booking) return;
+    const airlineName = booking.airline || booking.flightNo || "Airline";
+    const slug = airlineName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    const publicLogo = slug ? `/airlines/${slug}.png` : null;
+    const airlineLogoMap = airlines.reduce((acc,a)=>{ if(a?.name) acc[a.name.toLowerCase()] = a.tailLogoUrl || a.logoUrl; return acc; }, {});
+    const dbLogo = airlineLogoMap[airlineName.toLowerCase()] || null;
+    setLogoSrc(publicLogo || dbLogo);
+  }, [booking, airlines]);
 
   const dep = booking?.departure ? new Date(booking.departure) : null;
   const arr = booking?.arrival ? new Date(booking.arrival) : null;
@@ -123,6 +145,36 @@ const FlightDetails = () => {
           ✈️ Flight Booking
         </h2>
 
+        {/* Airline header with logo */}
+        <div className="mb-8 flex items-center gap-4 bg-white/70 backdrop-blur border border-blue-100 rounded-xl p-4 shadow">
+          <div className="w-20 h-20 rounded-lg flex items-center justify-center overflow-hidden relative">
+            {logoSrc ? (
+              <img
+                src={logoSrc}
+                alt={booking.airline || booking.flightNo || 'Airline'}
+                className="w-full h-full object-contain p-2"
+                onError={(e)=>{
+                  const airlineName = booking.airline || booking.flightNo || "";
+                  const slug = airlineName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+                  const publicLogo = slug ? `/airlines/${slug}.png` : null;
+                  const airlineLogoMap = airlines.reduce((acc,a)=>{ if(a?.name) acc[a.name.toLowerCase()] = a.tailLogoUrl || a.logoUrl; return acc; }, {});
+                  const dbLogo = airlineLogoMap[airlineName.toLowerCase()] || null;
+                  if (logoSrc === publicLogo && dbLogo) setLogoSrc(dbLogo); else setLogoSrc(null);
+                }}
+              />
+            ) : (
+              // Generated fallback "logo" (initials + gradient) so no image is required
+              <GeneratedLogo name={booking.airline || booking.flightNo || 'Air'} />
+            )}
+          </div>
+          <div>
+            <div className="text-lg font-bold text-blue-800">{booking.airline || 'Flight'}</div>
+            {booking.flightNo && <div className="text-sm text-gray-600 font-medium">Flight No: {booking.flightNo}</div>}
+            {booking.cabinClass && <div className="text-xs mt-1 inline-block px-2 py-1 bg-blue-100 text-blue-700 rounded-full">{booking.cabinClass}</div>}
+          </div>
+        </div>
+
+        <AirlineStrip airlines={airlines} />
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Flight info */}
           <div className="bg-white shadow-lg rounded-2xl border border-gray-200 p-6">
@@ -250,5 +302,39 @@ const InputField = ({ label, name, value, onChange, error, type = "text" }) => (
     {error && <p className="text-xs text-red-600">{error}</p>}
   </div>
 );
+
+// Generated placeholder logo (no image needed)
+const GeneratedLogo = ({ name }) => {
+  const initials = name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(w => w[0].toUpperCase())
+    .join("");
+  // Simple hash to pick a color pair
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  const palette = [
+    ["#1e3a8a", "#2563eb"],
+    ["#7c2d12", "#ea580c"],
+    ["#064e3b", "#10b981"],
+    ["#581c87", "#7e22ce"],
+    ["#0f172a", "#334155"],
+    ["#78350f", "#d97706"],
+  ];
+  const colors = palette[Math.abs(hash) % palette.length];
+  const style = {
+    background: `linear-gradient(135deg, ${colors[0]} 0%, ${colors[1]} 100%)`,
+  };
+  return (
+    <div
+      className="w-full h-full flex items-center justify-center text-white font-bold text-xl select-none"
+      style={style}
+      title={name}
+    >
+      {initials || "AL"}
+    </div>
+  );
+};
 
 export default FlightDetails;

@@ -12,6 +12,8 @@ import { accesstoken } from "./redux/tokenSlice";
 import { user } from "./redux/userSlice";
 import airlineImg from "../Assets/airline.jpg";
 import heroImage from "../Assets/hero-image.jpeg";
+import { listAirlines } from "../api/airlinesApi";
+import AirlineStrip from "./AirlineStrip";
 
 const Flights = () => {
   const [allFlights, setAllFlights] = useState([]); // raw from API
@@ -30,6 +32,7 @@ const Flights = () => {
   const [sortBy, setSortBy] = useState("price"); // price | duration | departure
   const [timeOfDay, setTimeOfDay] = useState("All"); // All | Morning | Afternoon | Evening | Night
   const [airlineFilter, setAirlineFilter] = useState("All");
+  const [airlines, setAirlines] = useState([]);
   const PRICE_MIN = 0;
   const PRICE_MAX = 100000;
   const [priceRange, setPriceRange] = useState({ absMin: PRICE_MIN, absMax: PRICE_MAX, min: PRICE_MIN, max: PRICE_MAX });
@@ -43,6 +46,39 @@ const Flights = () => {
     () => Array.from(new Set((allFlights || []).map((f) => f.airline).filter(Boolean))),
     [allFlights]
   );
+  // Map airline name -> logo for quick lookup in flight cards
+  const API_BASE = "http://localhost:5000"; // TODO: move to env for production
+  const airlineLogoMap = useMemo(() => {
+    const map = {};
+    const normalize = (p) => {
+      if (!p) return null;
+      if (/^https?:/i.test(p)) return p; // already absolute
+      const cleaned = p.replace(/^\.\//, "");
+      if (cleaned.startsWith("uploads/")) return `${API_BASE}/${cleaned}`;
+      if (cleaned.startsWith("/uploads/")) return `${API_BASE}${cleaned}`;
+      return cleaned; // assume public folder or direct asset
+    };
+    (airlines || []).forEach(a => {
+      if (a?.name) {
+        const key = a.name.toLowerCase().trim();
+        const raw = a.tailLogoUrl || a.logoUrl;
+        map[key] = normalize(raw);
+      }
+    });
+    return map;
+  }, [airlines]);
+
+  // Helper to resolve logo even if naming mismatches slightly
+  const resolveAirlineLogo = (name) => {
+    if (!name) return null;
+    const norm = name.toLowerCase().trim();
+    if (airlineLogoMap[norm]) return airlineLogoMap[norm];
+    const compact = norm.replace(/\s+/g,' ');
+    if (airlineLogoMap[compact]) return airlineLogoMap[compact];
+    const partial = Object.entries(airlineLogoMap).find(([k]) => compact.includes(k));
+    if (partial) return partial[1];
+    return null;
+  };
 
   // Fixed absolute price range like design reference
   useEffect(() => {
@@ -121,6 +157,18 @@ const Flights = () => {
   useEffect(() => {
     fetchFlights();
   }, [fetchFlights]);
+
+  // Fetch airlines with logos (seeded automatically on backend)
+  useEffect(() => {
+    (async () => {
+      try {
+        const data = await listAirlines();
+        setAirlines(data);
+      } catch (e) {
+        console.warn('Failed loading airlines', e.message);
+      }
+    })();
+  }, []);
 
   // Re-apply current filters when showAll toggles or lists update
   const runFilter = React.useCallback(() => {
@@ -332,6 +380,8 @@ const Flights = () => {
         <h2 className="text-xl md:text-2xl font-bold mb-4 flex items-center gap-2">
           <Plane className="text-blue-700" /> Available Flights
         </h2>
+        {/* Airline logos strip */}
+        <AirlineStrip airlines={airlines} />
       {/* Sidebar + Results */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="md:col-span-1">
@@ -378,15 +428,21 @@ const Flights = () => {
             </div>
           ))
         ) : filteredFlights.length > 0 ? (
-          filteredFlights.map((f) => (
+          filteredFlights.map((f) => {
+            const airlineName = f.airline || '';
+            const logo = resolveAirlineLogo(airlineName);
+            const slug = airlineName.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+            const publicLogo = slug ? `/airlines/${slug}.png` : null;
+            const chosenLogo = publicLogo || logo; // public preferred
+            return (
             <div key={f._id} className="bg-white rounded-xl shadow hover:shadow-lg transition border border-gray-100 p-4 flex items-center gap-4">
               {/* Airline */}
-              <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
-                <img src={airlineImg} alt="Flight" className="w-full h-full object-cover" />
+              <div className="w-16 h-16 flex items-center justify-center overflow-hidden">
+                <FlightCardLogo airlineName={airlineName} dbUrl={logo} />
               </div>
               <div className="min-w-[140px]">
                 <div className="text-sm text-gray-500">Airline</div>
-                <div className="text-2xl font-extrabold text-blue-800">{f.airline || '—'}</div>
+                <div className="text-2xl font-extrabold text-blue-800">{airlineName || '—'}</div>
                 <div className="text-sm text-gray-700 font-bold">{f.flightNo}</div>
               </div>
 
@@ -428,7 +484,7 @@ const Flights = () => {
                 </button>
               </div>
             </div>
-          ))
+          ); })
         ) : (
           <div className="text-center col-span-full text-gray-600 space-y-3">
             <p>No flights match your filters.</p>
@@ -453,3 +509,120 @@ const Flights = () => {
 };
 
 export default Flights;
+// Inline utility to create a JSX fallback if <img> fails (used inside onError where hooks not available)
+function GeneratedLogoElement(name){
+  const initials = (name||'AL')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0,2)
+    .map(w=>w[0].toUpperCase())
+    .join('');
+  // deterministic color
+  let hash=0; for (let i=0;i<name.length;i++){ hash = name.charCodeAt(i) + ((hash<<5)-hash); }
+  const palette=[["#1e3a8a","#2563eb"],["#7c2d12","#ea580c"],["#064e3b","#10b981"],["#581c87","#7e22ce"],["#0f172a","#334155"],["#78350f","#d97706"]];
+  const colors = palette[Math.abs(hash)%palette.length];
+  const div = document.createElement('div');
+  div.className='w-full h-full flex items-center justify-center font-bold text-white text-xs';
+  div.style.background=`linear-gradient(135deg, ${colors[0]} 0%, ${colors[1]} 100%)`;
+  div.textContent=initials||'AL';
+  div.title=name;
+  return div;
+}
+
+// React component fallback version
+const GeneratedLogo = ({name}) => {
+  const initials = (name||'AL')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0,2)
+    .map(w=>w[0].toUpperCase())
+    .join('');
+  let hash=0; for (let i=0;i<name.length;i++){ hash = name.charCodeAt(i) + ((hash<<5)-hash); }
+  const palette=[["#1e3a8a","#2563eb"],["#7c2d12","#ea580c"],["#064e3b","#10b981"],["#581c87","#7e22ce"],["#0f172a","#334155"],["#78350f","#d97706"]];
+  const colors = palette[Math.abs(hash)%palette.length];
+  return (
+    <div
+      className="w-full h-full flex items-center justify-center font-bold text-white text-xs"
+      style={{background:`linear-gradient(135deg, ${colors[0]} 0%, ${colors[1]} 100%)`}}
+      title={name}
+    >{initials||'AL'}</div>
+  );
+};
+
+// Flight card logo with multi-source fallback (.png/.jpg/.jpeg + DB + default + generated)
+const FlightCardLogo = ({ airlineName, dbUrl }) => {
+  const slug = (airlineName||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+  const noSpace = (airlineName||'').toLowerCase().replace(/\s+/g,'');
+  const sources = [
+    slug && `/airlines/${slug}/logo.png`,
+    slug && `/airlines/${slug}/logo.jpg`,
+    slug && `/airlines/${slug}/logo.jpeg`,
+    slug && `/airlines/${slug}.png`,
+    slug && `/airlines/${slug}.jpg`,
+    slug && `/airlines/${slug}.jpeg`,
+    noSpace && `/airlines/${noSpace}.png`,
+    noSpace && `/airlines/${noSpace}.jpg`,
+    noSpace && `/airlines/${noSpace}.jpeg`,
+    dbUrl || null,
+    '/airlines/default.svg'
+  ].filter(Boolean);
+  const [idx, setIdx] = React.useState(0);
+  const current = sources[idx];
+  const handleError = (e) => {
+    if (idx < sources.length - 1) setIdx(i => i + 1); else {
+      // Final fallback: replace with generated logo element
+      e.currentTarget.replaceWith(GeneratedLogoElement(airlineName));
+    }
+  };
+  const handleLoad = (e) => {
+    if (!/(^emirates$|^air india$|^akasa air$)/i.test(airlineName)) return;
+    try {
+      const img = e.currentTarget;
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img,0,0);
+      const { width, height } = canvas;
+      const imgData = ctx.getImageData(0,0,width,height);
+      const d = imgData.data;
+      const samples = [];
+      const pushSample = (x,y)=>{ const i=(y*width+x)*4; samples.push([d[i],d[i+1],d[i+2]]); };
+      pushSample(0,0); pushSample(width-1,0); pushSample(0,height-1); pushSample(width-1,height-1); pushSample(Math.floor(width/2),0); pushSample(Math.floor(width/2),height-1);
+      const avg = samples.reduce((a,[r,g,b])=>[a[0]+r,a[1]+g,a[2]+b],[0,0,0]).map(v=>v/samples.length);
+      const [br,bg,bb] = avg; const brightness = (br+bg+bb)/3;
+      for (let i=0;i<d.length;i+=4){
+        const r=d[i], g=d[i+1], b=d[i+2];
+        const pixelBrightness=(r+g+b)/3;
+        const max=Math.max(r,g,b), min=Math.min(r,g,b);
+        const saturation = max===0?0: (max-min)/max;
+        if (pixelBrightness > 180 && Math.abs(pixelBrightness-brightness) < 40 && saturation < 0.15){
+          d[i+3]=0;
+        }
+      }
+      ctx.putImageData(imgData,0,0);
+      // Crop edges
+      let top=0,bottom=height-1,left=0,right=width-1;
+      const isRowTransparent = (y)=>{ for(let x=0;x<width;x++){ const ii=(y*width+x)*4; if(d[ii+3]>10) return false; } return true; };
+      const isColTransparent = (x)=>{ for(let y=0;y<height;y++){ const ii=(y*width+x)*4; if(d[ii+3]>10) return false; } return true; };
+      while(top<bottom && isRowTransparent(top)) top++;
+      while(bottom>top && isRowTransparent(bottom)) bottom--;
+      while(left<right && isColTransparent(left)) left++;
+      while(right>left && isColTransparent(right)) right--;
+      const cropW = right-left+1; const cropH = bottom-top+1;
+      const cropped = ctx.getImageData(left,top,cropW,cropH);
+      canvas.width=cropW; canvas.height=cropH; ctx.putImageData(cropped,0,0);
+      img.src = canvas.toDataURL('image/png');
+    } catch {}
+  };
+  if (!current) return <GeneratedLogo name={airlineName || 'FL'} />;
+  return (
+    <img
+      src={current}
+      alt={airlineName}
+      className="w-full h-full object-contain p-2"
+      loading="lazy"
+      onError={handleError}
+      onLoad={handleLoad}
+    />
+  );
+};

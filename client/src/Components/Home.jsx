@@ -7,6 +7,7 @@ import useFlightStore from "./zustand store/ZStore";
 import FlightSearchMobile from "./FlightSearchMobile";
 import SearchResult from "./SearchResult";
 import Footer from "./Footer";
+import PopularFlightRoutes from "./PopularFlightRoutes";
 import airlineImg from "../Assets/airline.jpg";
 import fly from "../Assets/fly.jpeg";
 import { listSlides } from "../api/slidesApi";
@@ -215,59 +216,10 @@ const Home = () => {
           </div>
         </section>
 
-        {/* Popular Routes */}
-  <section className="bg-gradient-to-br from-slate-50 to-blue-50 rounded-xl shadow-inner mx-4 my-8 fade-in-on-scroll">
-          <div className="max-w-7xl mx-auto px-6 py-12">
-            <h3 className="text-2xl md:text-3xl font-bold text-slate-900 mb-2">Popular Routes</h3>
-            <p className="text-slate-600 mt-1 mb-8">Grab great deals on frequently traveled routes</p>
-            <div className="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {(popularLoading ? Array.from({ length: 4 }).map((_,i)=>({ _skeleton: true, i })) :
-                (popularFlights.length ? popularFlights : [
-                  { from: 'Delhi', to: 'Mumbai', price: 3200 },
-                  { from: 'Bengaluru', to: 'Chennai', price: 2800 },
-                  { from: 'Ahmedabad', to: 'Goa', price: 3500 },
-                  { from: 'Kolkata', to: 'Hyderabad', price: 3000 },
-                ])
-              ).map((r, i) => (
-                <div 
-                  key={i} 
-                  className="bg-white rounded-xl shadow-lg border border-blue-100 p-6 hover-lift hover-glow scale-in-on-scroll group"
-                  style={{ transitionDelay: `${i * 0.1}s` }}
-                >
-                  {r._skeleton ? (
-                    <div className="animate-pulse">
-                      <div className="h-3 w-16 bg-slate-200 rounded" />
-                      <div className="h-5 w-28 bg-slate-300 rounded mt-1" />
-                      <div className="h-3 w-12 bg-slate-200 rounded mt-3" />
-                      <div className="h-5 w-24 bg-slate-300 rounded mt-1" />
-                      <div className="h-6 w-20 bg-slate-200 rounded mt-4" />
-                    </div>
-                  ) : (
-                    <>
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="text-2xl">✈️</div>
-                        <div className="w-12 h-0.5 bg-gradient-to-r from-blue-500 to-amber-400"></div>
-                      </div>
-                      <div className="text-xs text-slate-500 uppercase tracking-wide">From</div>
-                      <div className="text-xl font-bold text-blue-900 mb-3">{r.from}</div>
-                      <div className="text-xs text-slate-500 uppercase tracking-wide">To</div>
-                      <div className="text-xl font-bold text-blue-900 mb-4">{r.to}</div>
-                      <div className="mt-4 text-2xl text-emerald-600 font-extrabold mb-4">
-                        ₹{Number(r.price || 0).toLocaleString('en-IN')}
-                      </div>
-                      <Link 
-                        to="/flights" 
-                        className="mt-4 inline-block w-full text-center text-sm bg-gradient-to-r from-blue-700 to-blue-800 hover:from-blue-800 hover:to-blue-900 text-white px-4 py-2.5 rounded-lg font-semibold transition-all duration-300 transform group-hover:scale-105 shadow-md hover:shadow-lg"
-                      >
-                        Book Now
-                      </Link>
-                    </>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
+        {/* Popular Flight Routes (new ixigo-style component) */}
+        <div className="mx-4 my-4 rounded-xl bg-gradient-to-br from-slate-50 to-blue-50 fade-in-on-scroll">
+          <PopularFlightRoutes />
+        </div>
 
         {/* How it works */}
   <section className="max-w-7xl mx-auto px-6 py-12 fade-in-on-scroll">

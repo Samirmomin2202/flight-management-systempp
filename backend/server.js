@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import dotenv from "dotenv";
 import cors from "cors";
 import flightsRoutes from "./routes/flights.js";
+import airlinesRoutes from "./routes/airlines.js";
 import bookingsRoutes from "./routes/bookings.js";
 import passengersRoutes from "./routes/passengers.js";
 import adminRoutes from "./routes/admin.js";
@@ -32,6 +33,7 @@ app.use(express.urlencoded({ limit: "5mb", extended: true }));
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 // Note: static uploads removed after undoing slides feature
+app.use('/uploads', express.static(path.join(process.cwd(), 'backend', 'uploads')));
 
 // Simple health check
 app.get('/api/test', (req, res) => {
@@ -40,29 +42,34 @@ app.get('/api/test', (req, res) => {
 
 // Email diagnostic route (no auth, disable in production or guard later)
 app.get('/api/email/test', async (req, res) => {
-  const info = emailProviderInfo();
-  // Quick provider snapshot
-  if (req.query.info === 'true') {
-    return res.json({ ok: true, info });
+  try {
+    const info = emailProviderInfo();
+    if (req.query.info === 'true') {
+      return res.json({ ok: true, info });
+    }
+    const fallbackTo = process.env.TEST_EMAIL_TO || (info.provider === 'SMTP' ? process.env.SMTP_USER?.replace(/"/g,'') : undefined);
+    const to = req.query.to || fallbackTo;
+    if (!to) {
+      return res.status(400).json({ ok: false, message: 'Provide ?to=recipient@example.com or set TEST_EMAIL_TO in env' });
+    }
+    const result = await sendEmail({
+      to,
+      subject: 'Email test (' + info.provider + ')',
+      text: 'Plain text test at ' + new Date().toISOString(),
+      html: '<strong>Email test</strong><br/>' + new Date().toISOString()
+    });
+    if (result.error) {
+      return res.status(500).json({ ok: false, provider: info.provider, error: result.error });
+    }
+    res.json({ ok: true, provider: info.provider, result });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
   }
-  const to = req.query.to || process.env.TEST_EMAIL_TO || info?.provider === 'SMTP' ? emailConfig?.auth?.user : undefined;
-  if (!to) {
-    return res.status(400).json({ ok: false, message: 'Provide ?to=recipient@example.com or set TEST_EMAIL_TO in env' });
-  }
-  const result = await sendEmail({
-    to,
-    subject: 'Email test (' + info.provider + ')',
-    text: 'Plain text test at ' + new Date().toISOString(),
-    html: '<strong>Email test</strong><br/>' + new Date().toISOString()
-  });
-  if (result.error) {
-    return res.status(500).json({ ok: false, provider: info.provider, error: result.error });
-  }
-  res.json({ ok: true, provider: info.provider, result });
 });
 
 // Routes
 app.use("/api/flights", flightsRoutes);
+app.use("/api/airlines", airlinesRoutes);
 app.use("/api/bookings", bookingsRoutes);
 app.use("/api/passengers", passengersRoutes);
 app.use("/api/admin", adminRoutes);

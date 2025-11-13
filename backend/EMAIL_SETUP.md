@@ -92,3 +92,4 @@ To check your current email configuration, the system logs:
 
 If no email provider is configured, emails are logged to the console in LOCAL mode. This is useful for development but won't send actual emails.
 
+

@@ -135,7 +135,7 @@ export async function generateTicketPdf(booking) {
         doc.fillColor(colors.white)
            .font("Helvetica-Bold")
            .fontSize(14)
-           .text("AIR TICKET", stubX + 20, y + 10);
+           .text("Flight Hub", stubX + 20, y + 10);
         
         // "BOARDING PASS" text (center-left)
         doc.fillColor(colors.white)
