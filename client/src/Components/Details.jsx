@@ -12,6 +12,7 @@ import { FeeSummary } from "./FlightInfo";
 import useFlightStore from "./zustand store/ZStore";
 import { v4 as uuidv4 } from "uuid";
 import { toast, ToastContainer } from "react-toastify";
+import { API_BASE } from "../api/base.js";
 
 const PassengerData = ({ filledFormList, setFilledFormList, bookingId, selectedSeats, setSelectedSeats, index, seatRows, isExitRow, occupiedSeats }) => {
   const { passengers, bookedFlight, getAllBookings, allBookings, getPassengersInfo } =
@@ -253,7 +254,7 @@ const PassengerData = ({ filledFormList, setFilledFormList, bookingId, selectedS
         };
 
         console.log("📤 Sending passenger data:", passengerData);
-        const response = await fetch("http://localhost:5000/api/passengers", {
+        const response = await fetch(`${API_BASE}/api/passengers`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(passengerData),
@@ -650,7 +651,7 @@ const Details = () => {
         console.log("🔍 Debug - Fetching booking details for ID:", id);
         
         // Try without authentication first (new backend setup)
-        let response = await fetch(`http://localhost:5000/api/bookings/${id}`, {
+        let response = await fetch(`${API_BASE}/api/bookings/${id}`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json'
@@ -665,7 +666,7 @@ const Details = () => {
           const authToken = token || Cookies.get("token");
           
           if (authToken) {
-            response = await fetch(`http://localhost:5000/api/bookings/${id}`, {
+            response = await fetch(`${API_BASE}/api/bookings/${id}`, {
               method: 'GET',
               headers: {
                 'Content-Type': 'application/json',
@@ -685,7 +686,7 @@ const Details = () => {
           // Try to enrich with flight seatCapacity via flightNo if missing
           if (!baseBooking.seatCapacity && baseBooking.flightNo) {
             try {
-              const fr = await fetch("http://localhost:5000/api/flights");
+              const fr = await fetch(`${API_BASE}/api/flights`);
               const fj = await fr.json();
               if (fj.success && Array.isArray(fj.flights)) {
                 const match = fj.flights.find((fl) => fl.flightNo === baseBooking.flightNo);
@@ -768,7 +769,7 @@ const Details = () => {
         const departure = bookingDetails?.departure || bookedFlight?.departure;
         if (!flightNo || !departure) return;
         const depISO = typeof departure === 'string' ? departure : new Date(departure).toISOString();
-        const resp = await fetch(`http://localhost:5000/api/passengers/occupied?flightNo=${encodeURIComponent(flightNo)}&departure=${encodeURIComponent(depISO)}`);
+        const resp = await fetch(`${API_BASE}/api/passengers/occupied?flightNo=${encodeURIComponent(flightNo)}&departure=${encodeURIComponent(depISO)}`);
         const data = await resp.json();
         if (data.success && Array.isArray(data.seats)) {
           setOccupiedSeats(data.seats);
@@ -879,7 +880,7 @@ const Details = () => {
           document.body.appendChild(s);
         });
 
-        const res = await fetch("http://localhost:5000/api/razorpay/create-order-intent", {
+        const res = await fetch(`${API_BASE}/api/razorpay/create-order-intent`, {
           method: "POST",
           headers: { "Content-Type": "application/json", 'Authorization': `Bearer ${authToken}` },
           body: JSON.stringify(intentPayload),
@@ -921,7 +922,7 @@ const Details = () => {
             image: "https://via.placeholder.com/150/2563eb/ffffff?text=FH",
             handler: async function (response) {
               try {
-                const verify = await fetch("http://localhost:5000/api/razorpay/verify", {
+                const verify = await fetch(`${API_BASE}/api/razorpay/verify`, {
                   method: "POST",
                   headers: { "Content-Type": "application/json", 'Authorization': `Bearer ${authToken}` },
                   body: JSON.stringify({

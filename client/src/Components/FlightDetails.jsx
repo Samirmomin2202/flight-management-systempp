@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { listAirlines } from "../api/airlinesApi";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import axios from "axios";
+import { API_BASE } from "../api/base.js";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import AirlineStrip from "./AirlineStrip";
@@ -42,7 +43,7 @@ const FlightDetails = () => {
     }
     const fetchBooking = async () => {
       try {
-        const res = await axios.get(`http://localhost:5000/api/bookings/${id}`);
+        const res = await axios.get(`${API_BASE}/api/bookings/${id}`);
         if (res?.data?.success && res.data.booking) {
           if (!canceled) setBooking(res.data.booking);
         } else {
@@ -114,7 +115,7 @@ const FlightDetails = () => {
     }
 
     try {
-      const res = await axios.post("http://localhost:5000/api/passengers", {
+      const res = await axios.post(`${API_BASE}/api/passengers`, {
         bookingId: booking._id,
         ...passengerInfo,
       });

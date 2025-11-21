@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import axios from "axios";
+import { API_BASE } from "../api/base.js";
 import { useSelector } from "react-redux";
 import { user } from "./redux/userSlice";
 import { accesstoken } from "./redux/tokenSlice";
@@ -32,15 +33,15 @@ const Booked = () => {
     const fetchData = async () => {
       try {
         // Public-first fetch
-        let resBooking = await axios.get(`http://localhost:5000/api/bookings/${id}`);
+        let resBooking = await axios.get(`${API_BASE}/api/bookings/${id}`);
         if (resBooking.status === 401 || resBooking.status === 403) {
           const authToken = token || Cookies.get("token");
           const userEmail = currentUser?.email || "";
           if (!authToken) throw new Error("Authentication required");
           const config = { headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' } };
           const url = userEmail
-            ? `http://localhost:5000/api/bookings/${id}?userEmail=${encodeURIComponent(userEmail)}`
-            : `http://localhost:5000/api/bookings/${id}`;
+            ? `${API_BASE}/api/bookings/${id}?userEmail=${encodeURIComponent(userEmail)}`
+            : `${API_BASE}/api/bookings/${id}`;
           resBooking = await axios.get(url, config);
         }
         if (resBooking?.data?.success && resBooking.data.booking) {
@@ -54,7 +55,7 @@ const Booked = () => {
         }
 
         const resPassengers = await axios.get(
-          `http://localhost:5000/api/passengers/booking/${id}`
+          `${API_BASE}/api/passengers/booking/${id}`
         );
         if (resPassengers?.data?.success) {
           if (!canceled) setPassengers(resPassengers.data.passengers);
@@ -101,7 +102,7 @@ const Booked = () => {
         return;
       }
       const res = await axios.delete(
-        `http://localhost:5000/api/bookings/${id}`,
+        `${API_BASE}/api/bookings/${id}`,
         { headers: { Authorization: `Bearer ${authToken}` } }
       );
       if (res.data.success) {

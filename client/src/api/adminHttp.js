@@ -1,9 +1,10 @@
 import axios from "axios";
+import { API_BASE } from "./base.js";
 import { useAdminStore } from "../stores/adminStore";
 
 // Admin-specific HTTP client that includes JWT token
 const adminHttp = axios.create({
-  baseURL: "http://localhost:5000/api",
+  baseURL: `${API_BASE}/api`,
   headers: {
     "Content-Type": "application/json",
   },

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
+import { API_BASE } from "../../api/base.js";
 import logo from "../../Assets/flight-logo.png";
 
 const ForgotPassword = () => {
@@ -31,7 +32,7 @@ const ForgotPassword = () => {
     setError("");
     setMessage("");
     try {
-      const res = await axios.post("http://localhost:5000/api/user/forgot/request", { email });
+      const res = await axios.post(`${API_BASE}/api/user/forgot/request`, { email });
       if (res.data.success) {
         setMessage("We've sent an OTP to your email if it's registered.");
         setStep(2);
@@ -53,7 +54,7 @@ const ForgotPassword = () => {
     setError("");
     setMessage("");
     try {
-      const res = await axios.post("http://localhost:5000/api/user/forgot/verify", { email, otp: combinedOtp, newPassword });
+      const res = await axios.post(`${API_BASE}/api/user/forgot/verify`, { email, otp: combinedOtp, newPassword });
       if (res.data.success) {
         setMessage("Password reset successful. You can now log in.");
         setStep(3);
@@ -118,7 +119,7 @@ const ForgotPassword = () => {
     setError("");
     setMessage("");
     try {
-      const res = await axios.post("http://localhost:5000/api/user/forgot/request", { email });
+      const res = await axios.post(`${API_BASE}/api/user/forgot/request`, { email });
       if (res.data.success) {
         setMessage("OTP resent to your email.");
         setResendTimer(60);

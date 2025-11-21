@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import axios from "axios";
+import { API_BASE } from "../api/base.js";
 
 const Contact = () => {
   const [form, setForm] = useState({ name: "", email: "", message: "" });
@@ -13,7 +14,7 @@ const Contact = () => {
     e.preventDefault();
     setStatus("Sending...");
     try {
-      const res = await axios.post("http://localhost:5000/api/contact", form);
+      const res = await axios.post(`${API_BASE}/api/contact`, form);
       if (res.data.success) {
         setStatus("✅ Message sent successfully!");
         setForm({ name: "", email: "", message: "" });

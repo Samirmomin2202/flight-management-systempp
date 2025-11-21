@@ -1,6 +1,7 @@
 import axios from 'axios';
+import { API_BASE } from './base.js';
 
-const BASE = 'http://localhost:5000/api/airlines';
+const BASE = `${API_BASE}/api/airlines`;
 
 export async function listAirlines() {
   const res = await axios.get(BASE);

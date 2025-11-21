@@ -1,7 +1,8 @@
 import axios from "axios";
+import { API_BASE } from "./base.js";
 
 const api = axios.create({
-  baseURL: "http://localhost:5000/api/flights", // must match backend route
+  baseURL: `${API_BASE}/api/flights`, // must match backend route
 });
 
 export default api;

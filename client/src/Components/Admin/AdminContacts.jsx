@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import { API_BASE } from "../../api/base.js";
 import AdminSidebar from "./AdminSidebar";
 
 const AdminContacts = () => {
@@ -9,7 +10,7 @@ const AdminContacts = () => {
   useEffect(() => {
     const fetchContacts = async () => {
       try {
-        const res = await axios.get("http://localhost:5000/api/contact");
+        const res = await axios.get(`${API_BASE}/api/contact`);
         if (res.data.success) {
           setContacts(res.data.contacts);
         }

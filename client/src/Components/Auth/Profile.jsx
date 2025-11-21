@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import Cookies from "js-cookie";
 import axios from "axios";
+import { API_BASE } from "../../api/base.js";
 import { useNavigate } from "react-router-dom";
 import { LogOut } from "lucide-react"; // ✅ Logout icon
 
@@ -21,7 +22,7 @@ const Profile = () => {
     }
 
     axios
-      .get("http://localhost:5000/api/user/me", {
+      .get(`${API_BASE}/api/user/me`, {
         headers: { Authorization: `Bearer ${token}` },
       })
       .then((res) => {
@@ -71,7 +72,7 @@ const Profile = () => {
     if (!token) return;
     setSaving(true);
     try {
-      const res = await axios.put("http://localhost:5000/api/user/me", form, {
+      const res = await axios.put(`${API_BASE}/api/user/me`, form, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const updated = res.data?.data;

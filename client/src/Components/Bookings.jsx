@@ -6,6 +6,7 @@ import useFlightStore from "./zustand store/ZStore";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import axios from "axios";
+import { API_BASE } from "../api/base.js";
 import Cookies from "js-cookie";
 import { useSelector } from "react-redux";
 import { user } from "./redux/userSlice";
@@ -13,7 +14,7 @@ import { accesstoken } from "./redux/tokenSlice";
 
 // Create axios instance for bookings
 const bookingAPI = axios.create({
-  baseURL: "http://localhost:5000/api/bookings"
+  baseURL: `${API_BASE}/api/bookings`
 });
 
 const Bookings = () => {
@@ -85,7 +86,7 @@ const Bookings = () => {
       // Test basic server connectivity first
       try {
         console.log("🧪 Testing server connection...");
-        await axios.get('http://localhost:5000/api/test');
+        await axios.get(`${API_BASE}/api/test`);
         console.log("✅ Server connection test passed");
       } catch (serverError) {
         console.error("❌ Server connection failed:", serverError.message);

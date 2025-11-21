@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import axios from "axios";
+import { API_BASE } from "../api/base.js";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { PlaneTakeoff, PlaneLanding, User, Calendar, CreditCard, MapPin, Clock, BadgeCheck, RefreshCw } from "lucide-react";
@@ -34,7 +35,7 @@ const ViewTicket = () => {
       try {
         console.log(`🎫 Fetching ticket details for booking: ${id}`);
         // First try unauthenticated
-        let res = await axios.get(`http://localhost:5000/api/bookings/${id}`);
+        let res = await axios.get(`${API_BASE}/api/bookings/${id}`);
         if (res.status === 401 || res.status === 403) {
           // Fallback to authenticated fetch if server requires it
           const authToken = token || Cookies.get("token");
@@ -42,8 +43,8 @@ const ViewTicket = () => {
           if (!authToken) throw new Error("Authentication required");
           const config = { headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' } };
           const url = userEmail
-            ? `http://localhost:5000/api/bookings/${id}?userEmail=${encodeURIComponent(userEmail)}`
-            : `http://localhost:5000/api/bookings/${id}`;
+            ? `${API_BASE}/api/bookings/${id}?userEmail=${encodeURIComponent(userEmail)}`
+            : `${API_BASE}/api/bookings/${id}`;
           res = await axios.get(url, config);
         }
 
@@ -53,7 +54,7 @@ const ViewTicket = () => {
           setError("");
           // Fetch lightweight payment status details
           try {
-            const statusRes = await axios.get(`http://localhost:5000/api/bookings/${id}/status`);
+            const statusRes = await axios.get(`${API_BASE}/api/bookings/${id}/status`);
             if (statusRes.data?.success) setStatusInfo(statusRes.data);
           } catch (e) {
             // non-blocking
@@ -255,7 +256,7 @@ const ViewTicket = () => {
       const pdfBase64 = pdf.output('datauristring');
 
       await axios.post(
-        `http://localhost:5000/api/bookings/${booking._id}/email`,
+        `${API_BASE}/api/bookings/${booking._id}/email`,
         { to: booking.userEmail, filename: fname, pdfBase64 },
         { headers: { Authorization: `Bearer ${authToken}` } }
       );
@@ -292,7 +293,7 @@ const ViewTicket = () => {
             <button
               onClick={async () => {
                 try {
-                  const s = await axios.get(`http://localhost:5000/api/bookings/${booking._id}/status`);
+                  const s = await axios.get(`${API_BASE}/api/bookings/${booking._id}/status`);
                   if (s.data?.success) {
                     setStatusInfo(s.data);
                     toast.success('Status refreshed');

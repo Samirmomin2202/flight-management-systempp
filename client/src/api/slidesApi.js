@@ -1,7 +1,8 @@
 import axios from "axios";
+import { API_BASE } from "./base.js";
 
 // Separate axios for generic API root (not only flights)
-const http = axios.create({ baseURL: "http://localhost:5000/api" });
+const http = axios.create({ baseURL: `${API_BASE}/api` });
 
 export const listSlides = async (activeOnly = true) => {
   const params = activeOnly ? { active: true } : {};
